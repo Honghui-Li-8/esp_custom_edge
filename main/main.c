@@ -19,19 +19,34 @@ static void recv_message_handler(esp_ble_mesh_msg_ctx_t *ctx, uint16_t length, u
             return;
         }
     }
+
+    if (strncmp((char*) msg_ptr, "hello world", 11) == 0) {
     
-    // send response to recived remessage
-    strcpy((char*)data_buffer, "hello Root, is your code working");
-    uint16_t response_length = strlen("hello Root, is your code working") + 1;
+        // "hello world" matched, is pre-setted special message
+        // send response to recived remessage
+        strcpy((char*)data_buffer, "hello Root, is your code working");
+        uint16_t response_length = strlen("hello Root, is your code working") + 1;
+
+        send_response(ctx, response_length, data_buffer);
+        ESP_LOGW(TAG_M, "<- Sended Response [%s]", (char*)data_buffer);
+
+        // send message back (initate communication)
+        ESP_LOGI(TAG_M, "----------- (send_message) initate a conversation back -----------");
+        strcpy((char*)data_buffer, "hello world, this is Edge");
+        send_message(ctx->addr, strlen("hello world, this is Edge") + 1, data_buffer);
+        ESP_LOGW(TAG_M, "<- Sended Message [%s]", (char*)data_buffer);
+        return;
+    }
+    
+    // send response to comfirm recive on other message
+    strcpy((char*)data_buffer, "Edge Confirmed recive [");
+    strcpy((char*)(data_buffer + 23), (char*) msg_ptr);
+    strcpy((char*)(data_buffer + 23 + length), "]");
+    uint16_t response_length = strlen((char *)data_buffer) + 1;
 
     send_response(ctx, response_length, data_buffer);
     ESP_LOGW(TAG_M, "<- Sended Response [%s]", (char*)data_buffer);
 
-    // send message back (initate communication)
-    ESP_LOGI(TAG_M, "----------- (send_message) initate a conversation back -----------");
-    strcpy((char*)data_buffer, "hello world, this is Edge");
-    send_message(ctx->addr, strlen("hello world, this is Edge") + 1, data_buffer);
-    ESP_LOGW(TAG_M, "<- Sended Message [%s]", (char*)data_buffer);
 }
 
 static void recv_response_handler(esp_ble_mesh_msg_ctx_t *ctx, uint16_t length, uint8_t *msg_ptr) {
