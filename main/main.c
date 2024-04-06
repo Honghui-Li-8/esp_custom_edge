@@ -9,7 +9,7 @@ static void prov_complete_handler(uint16_t node_index, const esp_ble_mesh_octet1
 
 static void recv_message_handler(esp_ble_mesh_msg_ctx_t *ctx, uint16_t length, uint8_t *msg_ptr) {
     // ESP_LOGI(TAG_M, " ----------- recv_message handler trigered -----------");
-    ESP_LOGW(TAG_M, "-> Recived Message [%s]", (char*)msg_ptr);
+    ESP_LOGW(TAG_M, "-> Received Message [%s]", (char*)msg_ptr);
 
     static uint8_t *data_buffer = NULL;
     if (data_buffer == NULL) {
@@ -23,7 +23,7 @@ static void recv_message_handler(esp_ble_mesh_msg_ctx_t *ctx, uint16_t length, u
     if (strncmp((char*) msg_ptr, "hello world", 11) == 0) {
     
         // "hello world" matched, is pre-setted special message
-        // send response to recived remessage
+        // send response to received message 
         strcpy((char*)data_buffer, "hello Root, is your code working");
         uint16_t response_length = strlen("hello Root, is your code working") + 1;
 
@@ -39,7 +39,7 @@ static void recv_message_handler(esp_ble_mesh_msg_ctx_t *ctx, uint16_t length, u
     }
     
     // send response to comfirm recive on other message
-    strcpy((char*)data_buffer, "Edge Confirmed recive [");
+    strcpy((char*)data_buffer, "Edge Confirmed receive [");
     strcpy((char*)(data_buffer + 23), (char*) msg_ptr);
     strcpy((char*)(data_buffer + 23 + length), "]");
     uint16_t response_length = strlen((char *)data_buffer) + 1;
@@ -51,7 +51,7 @@ static void recv_message_handler(esp_ble_mesh_msg_ctx_t *ctx, uint16_t length, u
 
 static void recv_response_handler(esp_ble_mesh_msg_ctx_t *ctx, uint16_t length, uint8_t *msg_ptr) {
     // ESP_LOGI(TAG_M, " ----------- recv_response handler trigered -----------");
-    ESP_LOGW(TAG_M, "-> Recived Response [%s]\n", (char*)msg_ptr);
+    ESP_LOGW(TAG_M, "-> Received Response [%s]\n", (char*)msg_ptr);
 
 }
 
@@ -60,6 +60,24 @@ static void timeout_handler(esp_ble_mesh_msg_ctx_t *ctx, uint32_t opcode) {
     
 }
 
+//Create a new handler to handle broadcasting
+static void broadcast_handler(esp_ble_mesh_msg_ctx_t *ctx, uint16_t length, uint8_t *msg_ptr) {
+    ESP_LOGI(TAG_M, "Broadcast happened\n");
+    static uint8_t *data_buffer = NULL;
+    if (data_buffer == NULL) {
+        data_buffer = (uint8_t*)malloc(128);
+        if (data_buffer == NULL) {
+            printf("Memory allocation failed.\n");
+            return;
+        }
+    }
+
+    ESP_LOGI(TAG_M, "----------- (send_message) Message back for broadcast -----------");
+    strcpy((char*)data_buffer, "Message back for broadcast");
+    send_message(ctx->addr, strlen("message back for broadcast") + 1, data_buffer);
+    ESP_LOGW(TAG_M, "<- Sended Message [%s]", (char*)data_buffer);
+    return;
+}
 
 void app_main(void)
 {
@@ -67,9 +85,9 @@ void app_main(void)
     board_init();
 
 #if defined(ROOT_MODULE)
-    err = esp_module_root_init(prov_complete_handler, recv_message_handler, recv_response_handler, timeout_handler);
+    err = esp_module_root_init(prov_complete_handler, recv_message_handler, recv_response_handler, timeout_handler, broadcast_handler);
 #else
-    err = esp_module_edge_init(prov_complete_handler, recv_message_handler, recv_response_handler, timeout_handler);
+    err = esp_module_edge_init(prov_complete_handler, recv_message_handler, recv_response_handler, timeout_handler, broadcast_handler);
 #endif
 
     if (err != ESP_OK) {

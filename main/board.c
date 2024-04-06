@@ -19,6 +19,7 @@
 #define BUTTON_ACTIVE_LEVEL     0
 
 extern void send_message(uint16_t dst_address, uint16_t length, uint8_t *data_ptr);
+extern void send_broadcast(uint16_t length, uint8_t *data_ptr);
 extern void printNetworkInfo();
 
 static void button_tap_cb(void* arg)
@@ -33,8 +34,8 @@ static void button_tap_cb(void* arg)
         }
     }
     
-    strcpy((char*)data_buffer, "hello world, this is Edge");
-    send_message(0x0001, strlen("hello world, this is Edge") + 1, data_buffer);
+    strcpy((char*)data_buffer, "Broadcast sent");
+    send_broadcast(strlen("Broadcast sent") + 1, data_buffer);
 }
 
 static void board_button_init(void)

@@ -2,13 +2,13 @@ dependencies:
   button:
     component_hash: null
     source:
-      path: C:\Users\hongh\esp\v5.2\esp-idf\examples\bluetooth\esp_ble_mesh\common_components\button
+      path: C:\Users\axeln\esp\v5.2\esp-idf\examples\bluetooth\esp_ble_mesh\common_components\button
       type: local
     version: '*'
   example_init:
     component_hash: null
     source:
-      path: C:\Users\hongh\esp\v5.2\esp-idf\examples\bluetooth\esp_ble_mesh\common_components\example_init
+      path: C:\Users\axeln\esp\v5.2\esp-idf\examples\bluetooth\esp_ble_mesh\common_components\example_init
       type: local
     version: '*'
   idf:
@@ -16,6 +16,6 @@ dependencies:
     source:
       type: idf
     version: 5.2.0
-manifest_hash: 1605f7e9280f6ed54e0188d9cbba414a4fe4a108835844fba5f85bbaa4fa4aab
+manifest_hash: 6f34b6ed01fefa8ab4623f10a7eb12c1854fef7808a81a96a97c6eb36b903263
 target: esp32h2
 version: 1.0.0
