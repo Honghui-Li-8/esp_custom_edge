@@ -38,7 +38,7 @@ static void recv_message_handler(esp_ble_mesh_msg_ctx_t *ctx, uint16_t length, u
         return;
     }
     
-    // send response to comfirm recive on other message
+    // // send response to comfirm receive on other message
     strcpy((char*)data_buffer, "Edge Confirmed receive [");
     strcpy((char*)(data_buffer + 23), (char*) msg_ptr);
     strcpy((char*)(data_buffer + 23 + length), "]");
@@ -63,6 +63,7 @@ static void timeout_handler(esp_ble_mesh_msg_ctx_t *ctx, uint32_t opcode) {
 //Create a new handler to handle broadcasting
 static void broadcast_handler(esp_ble_mesh_msg_ctx_t *ctx, uint16_t length, uint8_t *msg_ptr) {
     ESP_LOGI(TAG_M, "Broadcast happened\n");
+    
     static uint8_t *data_buffer = NULL;
     if (data_buffer == NULL) {
         data_buffer = (uint8_t*)malloc(128);
