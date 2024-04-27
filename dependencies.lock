@@ -11,11 +11,17 @@ dependencies:
       path: C:\Users\axeln\esp\v5.2\esp-idf\examples\bluetooth\esp_ble_mesh\common_components\example_init
       type: local
     version: '*'
+  fast_prov:
+    component_hash: null
+    source:
+      path: C:\Users\axeln\esp\v5.2\esp-idf\examples\bluetooth\esp_ble_mesh\common_components\fast_prov
+      type: local
+    version: '*'
   idf:
     component_hash: null
     source:
       type: idf
     version: 5.2.0
-manifest_hash: 6f34b6ed01fefa8ab4623f10a7eb12c1854fef7808a81a96a97c6eb36b903263
+manifest_hash: c3b765507a8d5bbe399ee6e99f5286e7d82ed2e31c918437ad22ce67271e30d5
 target: esp32h2
 version: 1.0.0

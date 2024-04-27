@@ -11,6 +11,7 @@
 #define _BOARD_H_
 
 #include "driver/gpio.h"
+#include "esp_ble_mesh_defs.h"
 
 #if defined(CONFIG_BLE_MESH_ESP_WROOM_32)
 #define LED_R GPIO_NUM_25
@@ -38,6 +39,8 @@
 #define LED_B GPIO_NUM_8
 #endif
 
+//TODO: Ask honghui about this warning, shouldn't be an issue though, 
+//      in directory /esp_ble_mesh/common_components/fast_prov/ble_mesh_fast_prov_common.h:13: warning: "LED_OFF" redefined
 #define LED_ON  1
 #define LED_OFF 0
 

@@ -1,9 +1,15 @@
 {
   "C_Cpp.intelliSenseEngine": "default",
-  "idf.portWin": "COM9",
+  "idf.portWin": "COM6",
   "idf.adapterTargetName": "esp32h2",
   "idf.flashType": "UART",
   "idf.openOcdConfigs": [
     "board/esp32h2-builtin.cfg"
-  ]
+  ],
+  "files.associations": {
+    "esp_ble_mesh_config_model_api.h": "c",
+    "networkconfig.h": "c",
+    "esp_ble_mesh_defs.h": "c",
+    "esp_ble_mesh_provisioning_api.h": "c"
+  }
 }

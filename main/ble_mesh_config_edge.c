@@ -15,6 +15,9 @@
 #include "esp_ble_mesh_networking_api.h"
 #include "esp_ble_mesh_config_model_api.h"
 
+#include "ble_mesh_fast_prov_operation.h"
+#include "ble_mesh_fast_prov_client_model.h"
+#include "ble_mesh_fast_prov_server_model.h"
 #include "ble_mesh_example_init.h"
 
 #include "../Secret/NetworkConfig.h"
@@ -24,7 +27,13 @@
 #define TAG_W "Debug"
 #define TAG_INFO "Net_Info"
 
+extern struct k_delayed_work send_self_prov_node_addr_timer;
+extern bt_mesh_atomic_t fast_prov_cli_flags;
+
 static uint8_t dev_uuid[ESP_BLE_MESH_OCTET16_LEN] = INIT_UUID_MATCH;
+static uint8_t prov_start_num = 0;
+static bool prov_start = false;
+
 static struct esp_ble_mesh_key {
     uint16_t net_idx;
     uint16_t app_idx;
@@ -34,12 +43,14 @@ static struct esp_ble_mesh_key {
 // static nvs_handle_t NVS_HANDLE;
 // static const char * NVS_KEY = NVS_KEY_ROOT;
 
-
 #define MSG_ROLE MSG_ROLE_EDGE
 
 static esp_ble_mesh_prov_t provision = {
     .uuid = dev_uuid,
 };
+
+/* Configuration Client Model user_data */
+esp_ble_mesh_client_t config_client;
 
 static esp_ble_mesh_cfg_srv_t config_server = {
     .relay = ESP_BLE_MESH_RELAY_ENABLED,
@@ -61,17 +72,50 @@ static esp_ble_mesh_cfg_srv_t config_server = {
 };
 
 static esp_ble_mesh_model_t root_models[] = {
+    ESP_BLE_MESH_MODEL_CFG_CLI(&config_client),
     ESP_BLE_MESH_MODEL_CFG_SRV(&config_server),
 };
 
 static const esp_ble_mesh_client_op_pair_t client_op_pair[] = {
     { ECS_193_MODEL_OP_MESSAGE, ECS_193_MODEL_OP_RESPONSE },
-    { ECS_193_MODEL_OP_BROADCAST, NULL },
+    { ECS_193_MODEL_OP_BROADCAST, ECS_193_MODEL_OP_EMPTY },
+};
+
+static const esp_ble_mesh_client_op_pair_t fast_prov_cli_op_pair[] = {
+    { ECS_193_MODEL_OP_FP_INFO_SET, ECS_193_MODEL_OP_FP_INFO_STATUS },
+    { ECS_193_MODEL_OP_FP_NET_KEY_ADD, ECS_193_MODEL_OP_FP_NET_KEY_STATUS },
+    { ECS_193_MODEL_OP_FP_ADDR, ECS_193_MODEL_OP_FP_ADDR_ACK },
+    { ECS_193_MODEL_OP_FP_NODE_ADDR_GET, ECS_193_MODEL_OP_FP_NODE_ADDR_STATUS },
+};
+
+/* Fast Prov Edge Model user_data */
+example_fast_prov_server_t fast_prov_edge = {
+    .primary_role  = false,
+    .max_node_num  = 6,
+    .prov_node_cnt = 0x0,
+    .unicast_min   = ESP_BLE_MESH_ADDR_UNASSIGNED,
+    .unicast_max   = ESP_BLE_MESH_ADDR_UNASSIGNED,
+    .unicast_cur   = ESP_BLE_MESH_ADDR_UNASSIGNED,
+    .unicast_step  = 0x0,
+    .flags         = 0x0,
+    .iv_index      = 0x0,
+    .net_idx       = ESP_BLE_MESH_KEY_UNUSED,
+    .app_idx       = ESP_BLE_MESH_KEY_UNUSED,
+    .prim_prov_addr = ESP_BLE_MESH_ADDR_UNASSIGNED,
+    .match_len     = 0x0,
+    .pend_act      = FAST_PROV_ACT_NONE,
+    .state         = STATE_IDLE,
 };
 
 static esp_ble_mesh_client_t ecs_193_client = {
     .op_pair_size = ARRAY_SIZE(client_op_pair),
     .op_pair = client_op_pair,
+};
+
+/* Fast Prov Root Model user_data */
+esp_ble_mesh_client_t fast_prov_root = {
+    .op_pair_size = ARRAY_SIZE(fast_prov_cli_op_pair),
+    .op_pair = fast_prov_cli_op_pair,
 };
 
 static esp_ble_mesh_model_op_t client_op[] = { // operation client will "RECEIVED"
@@ -85,13 +129,30 @@ static esp_ble_mesh_model_op_t server_op[] = { // operation server will "RECEIVE
     ESP_BLE_MESH_MODEL_OP_END,
 };
 
-static esp_ble_mesh_model_t vnd_models[] = { // custom models
+static esp_ble_mesh_model_op_t fast_prov_srv_op[] = {
+    ESP_BLE_MESH_MODEL_OP(ECS_193_MODEL_OP_FP_INFO_SET,          3),
+    ESP_BLE_MESH_MODEL_OP(ECS_193_MODEL_OP_FP_NET_KEY_ADD,      16),
+    ESP_BLE_MESH_MODEL_OP(ECS_193_MODEL_OP_FP_ADDR,              2),
+    ESP_BLE_MESH_MODEL_OP(ECS_193_MODEL_OP_FP_NODE_ADDR_GET,     0),
+    ESP_BLE_MESH_MODEL_OP_END,
+};
+
+static esp_ble_mesh_model_op_t fast_prov_cli_op[] = {
+    ESP_BLE_MESH_MODEL_OP(ECS_193_MODEL_OP_FP_INFO_STATUS,    1),
+    ESP_BLE_MESH_MODEL_OP(ECS_193_MODEL_OP_FP_NET_KEY_STATUS, 2),
+    ESP_BLE_MESH_MODEL_OP(ECS_193_MODEL_OP_FP_ADDR_ACK,       0),
+    ESP_BLE_MESH_MODEL_OP_END,
+};
+
+static esp_ble_mesh_model_t vnd_models[] = {
+    ESP_BLE_MESH_VENDOR_MODEL(ECS_193_CID, ECS_193_MODEL_ID_FP_CLIENT, fast_prov_cli_op, NULL, &fast_prov_root),
+    ESP_BLE_MESH_VENDOR_MODEL(ECS_193_CID, ECS_193_MODEL_ID_FP_SERVER, fast_prov_srv_op, NULL, &fast_prov_edge),
     ESP_BLE_MESH_VENDOR_MODEL(ECS_193_CID, ECS_193_MODEL_ID_CLIENT, client_op, NULL, &ecs_193_client), 
     ESP_BLE_MESH_VENDOR_MODEL(ECS_193_CID, ECS_193_MODEL_ID_SERVER, server_op, NULL, NULL),
 };
 
-static esp_ble_mesh_model_t *client_model = &vnd_models[0];
-static esp_ble_mesh_model_t *server_model = &vnd_models[1];
+static esp_ble_mesh_model_t *client_model = &vnd_models[2];
+static esp_ble_mesh_model_t *server_model = &vnd_models[3];
 
 static esp_ble_mesh_elem_t elements[] = {
     ESP_BLE_MESH_ELEMENT(0, root_models, vnd_models),
@@ -102,6 +163,21 @@ static esp_ble_mesh_comp_t composition = { // composition of current module
     .elements = elements,
     .element_count = ARRAY_SIZE(elements),
 };
+
+//TODO: Fix this error
+static esp_ble_mesh_prov_t prov = { 
+    .uuid                = dev_uuid,
+    .output_size         = 0,
+    .output_actions      = 0,
+    .prov_attention      = 0x00,
+    .prov_algorithm      = 0x00,
+    .prov_pub_key_oob    = 0x00,
+    .prov_static_oob_val = NULL,
+    .prov_static_oob_len = 0x00,
+    .flags               = 0x00,
+    .iv_index            = 0x00,
+};
+
 
 
 // -------------------- application level callback functions ------------------
@@ -317,8 +393,8 @@ void send_broadcast(uint16_t length, uint8_t *data_ptr)
     ctx.addr = 0xFFFF;
     ctx.send_ttl = MSG_SEND_TTL;
     
-
-    err = esp_ble_mesh_client_model_send_msg(client_model, &ctx, opcode, length, data_ptr, MSG_TIMEOUT, true, message_role);
+    //false value means doesn't need response (broadcast can't have response)
+    err = esp_ble_mesh_client_model_send_msg(client_model, &ctx, opcode, length, data_ptr, MSG_TIMEOUT, false, message_role);
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "Failed to send message to node addr 0xFFFF, err_code %d", err);
         return;

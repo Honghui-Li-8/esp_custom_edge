@@ -11,6 +11,7 @@
 #include "esp_log.h"
 #include "iot_button.h"
 #include <string.h>
+#include "ble_mesh_fast_prov_common.h"
 
 #define TAG "BOARD"
 #define TAG_W "Debug"
