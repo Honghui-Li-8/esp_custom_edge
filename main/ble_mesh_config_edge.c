@@ -14,6 +14,7 @@
 #include "esp_ble_mesh_provisioning_api.h"
 #include "esp_ble_mesh_networking_api.h"
 #include "esp_ble_mesh_config_model_api.h"
+#include "esp_ble_mesh_local_data_operation_api.h"
 
 #include "ble_mesh_fast_prov_operation.h"
 #include "ble_mesh_fast_prov_client_model.h"
@@ -46,9 +47,9 @@ static struct esp_ble_mesh_key {
 
 #define MSG_ROLE MSG_ROLE_EDGE
 
-static esp_ble_mesh_prov_t provision = {
-    .uuid = dev_uuid,
-};
+// static esp_ble_mesh_prov_t provision = {
+//     .uuid = dev_uuid,
+// };
 
 /* Configuration Client Model user_data */
 esp_ble_mesh_client_t config_client;
@@ -83,10 +84,10 @@ static const esp_ble_mesh_client_op_pair_t client_op_pair[] = {
 };
 
 static const esp_ble_mesh_client_op_pair_t fast_prov_cli_op_pair[] = {
-    { ECS_193_MODEL_OP_FP_INFO_SET, ECS_193_MODEL_OP_FP_INFO_STATUS },
-    { ECS_193_MODEL_OP_FP_NET_KEY_ADD, ECS_193_MODEL_OP_FP_NET_KEY_STATUS },
-    { ECS_193_MODEL_OP_FP_ADDR, ECS_193_MODEL_OP_FP_ADDR_ACK },
-    { ECS_193_MODEL_OP_FP_NODE_ADDR_GET, ECS_193_MODEL_OP_FP_NODE_ADDR_STATUS },
+    { ESP_BLE_MESH_VND_MODEL_OP_FAST_PROV_INFO_SET,         ESP_BLE_MESH_VND_MODEL_OP_FAST_PROV_INFO_STATUS         },
+    { ESP_BLE_MESH_VND_MODEL_OP_FAST_PROV_NET_KEY_ADD,      ESP_BLE_MESH_VND_MODEL_OP_FAST_PROV_NET_KEY_STATUS      },
+    { ESP_BLE_MESH_VND_MODEL_OP_FAST_PROV_NODE_ADDR,        ESP_BLE_MESH_VND_MODEL_OP_FAST_PROV_NODE_ADDR_ACK       },
+    { ESP_BLE_MESH_VND_MODEL_OP_FAST_PROV_NODE_ADDR_GET,    ESP_BLE_MESH_VND_MODEL_OP_FAST_PROV_NODE_ADDR_STATUS    },
 };
 
 /* Fast Prov Edge Model user_data */
@@ -131,17 +132,17 @@ static esp_ble_mesh_model_op_t server_op[] = { // operation server will "RECEIVE
 };
 
 static esp_ble_mesh_model_op_t fast_prov_srv_op[] = {
-    ESP_BLE_MESH_MODEL_OP(ECS_193_MODEL_OP_FP_INFO_SET,          3),
-    ESP_BLE_MESH_MODEL_OP(ECS_193_MODEL_OP_FP_NET_KEY_ADD,      16),
-    ESP_BLE_MESH_MODEL_OP(ECS_193_MODEL_OP_FP_ADDR,              2),
-    ESP_BLE_MESH_MODEL_OP(ECS_193_MODEL_OP_FP_NODE_ADDR_GET,     0),
+    ESP_BLE_MESH_MODEL_OP(ESP_BLE_MESH_VND_MODEL_OP_FAST_PROV_INFO_SET,             3),
+    ESP_BLE_MESH_MODEL_OP(ESP_BLE_MESH_VND_MODEL_OP_FAST_PROV_NET_KEY_ADD,         16),
+    ESP_BLE_MESH_MODEL_OP(ESP_BLE_MESH_VND_MODEL_OP_FAST_PROV_NODE_ADDR,            2),
+    ESP_BLE_MESH_MODEL_OP(ESP_BLE_MESH_VND_MODEL_OP_FAST_PROV_NODE_ADDR_GET,        0),
     ESP_BLE_MESH_MODEL_OP_END,
 };
 
 static esp_ble_mesh_model_op_t fast_prov_cli_op[] = {
-    ESP_BLE_MESH_MODEL_OP(ECS_193_MODEL_OP_FP_INFO_STATUS,    1),
-    ESP_BLE_MESH_MODEL_OP(ECS_193_MODEL_OP_FP_NET_KEY_STATUS, 2),
-    ESP_BLE_MESH_MODEL_OP(ECS_193_MODEL_OP_FP_ADDR_ACK,       0),
+    ESP_BLE_MESH_MODEL_OP(ESP_BLE_MESH_VND_MODEL_OP_FAST_PROV_INFO_STATUS,          1),
+    ESP_BLE_MESH_MODEL_OP(ESP_BLE_MESH_VND_MODEL_OP_FAST_PROV_NET_KEY_STATUS,       2),
+    ESP_BLE_MESH_MODEL_OP(ESP_BLE_MESH_VND_MODEL_OP_FAST_PROV_NODE_ADDR_ACK,        0),
     ESP_BLE_MESH_MODEL_OP_END,
 };
 
@@ -349,19 +350,16 @@ static void ble_mesh_provisioning_cb(esp_ble_mesh_prov_cb_event_t event,
         break;
     case ESP_BLE_MESH_NODE_PROV_LINK_OPEN_EVT:
         ESP_LOGI(TAG, "ESP_BLE_MESH_NODE_PROV_LINK_OPEN_EVT, bearer %s",
-            param->node_prov_link_open.bearer == ESP_BLE_MESH_PROV_ADV ? "PB-ADV" : "PB-GATT");
+                    param->node_prov_link_open.bearer == ESP_BLE_MESH_PROV_ADV ? "PB-ADV" : "PB-GATT");
         break;
     case ESP_BLE_MESH_NODE_PROV_LINK_CLOSE_EVT:
         ESP_LOGI(TAG, "ESP_BLE_MESH_NODE_PROV_LINK_CLOSE_EVT, bearer %s",
-            param->node_prov_link_close.bearer == ESP_BLE_MESH_PROV_ADV ? "PB-ADV" : "PB-GATT");
-        if (prov_start_num) {
-        prov_start_num--;
-        }
+                    param->node_prov_link_close.bearer == ESP_BLE_MESH_PROV_ADV ? "PB-ADV" : "PB-GATT");
         break;
     case ESP_BLE_MESH_NODE_PROV_COMPLETE_EVT:
         ESP_LOGI(TAG, "ESP_BLE_MESH_NODE_PROV_COMPLETE_EVT");
         prov_complete(param->node_prov_complete.net_idx, param->node_prov_complete.addr,
-            param->node_prov_complete.flags, param->node_prov_complete.iv_index);
+                    param->node_prov_complete.flags, param->node_prov_complete.iv_index);
         break;
     case ESP_BLE_MESH_NODE_PROV_RESET_EVT:
         ESP_LOGI(TAG, "ESP_BLE_MESH_NODE_PROV_RESET_EVT");
@@ -383,14 +381,14 @@ static void ble_mesh_provisioning_cb(esp_ble_mesh_prov_cb_event_t event,
                                     param->provisioner_recv_unprov_adv_pkt.adv_type, param->provisioner_recv_unprov_adv_pkt.bearer);
         break;
     case ESP_BLE_MESH_PROVISIONER_PROV_LINK_OPEN_EVT:
-        ESP_LOGI(TAG, "ESP_BLE_MESH_PROVISIONER_PROV_LINK_OPEN_EVT");
-        ESP_LOGI(TAG, "%s: bearer %s", param->provisioner_prov_link_open.bearer, 
-                                        param->provisioner_prov_link_open.bearer == ESP_BLE_MESH_PROV_ADV ? "PB-ADV" : "PB-GATT");
+        // ESP_LOGI(TAG, "ESP_BLE_MESH_PROVISIONER_PROV_LINK_OPEN_EVT");
+        // ESP_LOGI(TAG, "%s: bearer %s", param->provisioner_prov_link_open.bearer, 
+        //                                 param->provisioner_prov_link_open.bearer == ESP_BLE_MESH_PROV_ADV ? "PB-ADV" : "PB-GATT");
         break;
     case ESP_BLE_MESH_PROVISIONER_PROV_LINK_CLOSE_EVT:
-        ESP_LOGI(TAG, "ESP_BLE_MESH_PROVISIONER_PROV_LINK_CLOSE_EVT");
-        ESP_LOGI(TAG, "%s: bearer %s, reason 0x%02x", param->provisioner_prov_link_close.bearer,
-                    param->provisioner_prov_link_close.bearer == ESP_BLE_MESH_PROV_ADV ? "PB-ADV" : "PB-GATT", param->provisioner_prov_link_close.reason);
+        // ESP_LOGI(TAG, "ESP_BLE_MESH_PROVISIONER_PROV_LINK_CLOSE_EVT");
+        // ESP_LOGI(TAG, "%s: bearer %s, reason 0x%02x", param->provisioner_prov_link_close.bearer,
+        //             param->provisioner_prov_link_close.bearer == ESP_BLE_MESH_PROV_ADV ? "PB-ADV" : "PB-GATT", param->provisioner_prov_link_close.reason);
         if (prov_start_num) {
             prov_start_num--;
         }
@@ -541,8 +539,10 @@ static void ble_mesh_custom_model_cb(esp_ble_mesh_model_cb_event_t event, esp_bl
             recv_response_handler_cb(param->model_operation.ctx, param->model_operation.length, param->model_operation.msg);
         } else if (param->model_operation.opcode == ECS_193_MODEL_OP_BROADCAST) {
             broadcast_handler_cb(param->model_operation.ctx, param->model_operation.length, param->model_operation.msg);
-        } else if (param->model_operation.opcode == ECS_193_MODEL_OP_FP_INFO_SET || param->model_operation.opcode == ECS_193_MODEL_OP_FP_NET_KEY_ADD ||
-                    param->model_operation.opcode == ECS_193_MODEL_OP_FP_ADDR || param->model_operation.opcode == ECS_193_MODEL_OP_FP_NODE_ADDR_GET) {
+        } else if (param->model_operation.opcode == ESP_BLE_MESH_VND_MODEL_OP_FAST_PROV_INFO_SET || 
+                    param->model_operation.opcode == ESP_BLE_MESH_VND_MODEL_OP_FAST_PROV_NET_KEY_ADD ||
+                    param->model_operation.opcode == ESP_BLE_MESH_VND_MODEL_OP_FAST_PROV_NODE_ADDR || 
+                    param->model_operation.opcode == ESP_BLE_MESH_VND_MODEL_OP_FAST_PROV_NODE_ADDR_GET) {
             ESP_LOGI(TAG, "%s: Fast prov server receives msg, opcode 0x%04" PRIx32, __func__, param->model_operation.opcode);
             struct net_buf_simple buf = {
                 .len = param->model_operation.length,
@@ -555,8 +555,9 @@ static void ble_mesh_custom_model_cb(esp_ble_mesh_model_cb_event_t event, esp_bl
                 ESP_LOGE(TAG, "%s: Failed to handle fast prov client message", __func__);
                 return;
             }
-        } else if (param->model_operation.opcode == ECS_193_MODEL_OP_FP_INFO_STATUS || param->model_operation.opcode == ECS_193_MODEL_OP_FP_NET_KEY_STATUS ||
-                    param->model_operation.opcode == ECS_193_MODEL_OP_FP_ADDR_ACK) {
+        } else if (param->model_operation.opcode == ESP_BLE_MESH_VND_MODEL_OP_FAST_PROV_INFO_STATUS ||
+                    param->model_operation.opcode == ESP_BLE_MESH_VND_MODEL_OP_FAST_PROV_NET_KEY_STATUS ||
+                    param->model_operation.opcode == ESP_BLE_MESH_VND_MODEL_OP_FAST_PROV_NODE_ADDR_ACK) {
             ESP_LOGI(TAG, "%s: Fast prov client receives msg, opcode 0x%04" PRIx32, __func__, param->model_operation.opcode);
             //TODO: Read this function call
             err = example_fast_prov_client_recv_status(param->model_operation.model,
@@ -576,8 +577,10 @@ static void ble_mesh_custom_model_cb(esp_ble_mesh_model_cb_event_t event, esp_bl
             ESP_LOGE(TAG, "Failed to send message 0x%06" PRIx32, param->model_send_comp.opcode);
             break;
         }
-        if (param->model_send_comp.opcode == ECS_193_MODEL_OP_FP_INFO_STATUS || param->model_send_comp.opcode == ECS_193_MODEL_OP_FP_NET_KEY_STATUS ||
-            param->model_send_comp.opcode == ECS_193_MODEL_OP_FP_ADDR_ACK || param->model_send_comp.opcode == ECS_193_MODEL_OP_FP_NODE_ADDR_STATUS) {
+        if (param->model_operation.opcode == ESP_BLE_MESH_VND_MODEL_OP_FAST_PROV_INFO_SET || 
+            param->model_operation.opcode == ESP_BLE_MESH_VND_MODEL_OP_FAST_PROV_NET_KEY_ADD ||
+            param->model_operation.opcode == ESP_BLE_MESH_VND_MODEL_OP_FAST_PROV_NODE_ADDR || 
+            param->model_operation.opcode == ESP_BLE_MESH_VND_MODEL_OP_FAST_PROV_NODE_ADDR_GET) {
             //TODO: Read this function, opcode is difference
             err = example_handle_fast_prov_status_send_comp_evt(param->model_send_comp.err_code,
                     param->model_send_comp.opcode,
@@ -855,7 +858,7 @@ static esp_err_t ble_mesh_init(void)
     esp_ble_mesh_register_config_client_callback(example_ble_mesh_config_client_cb);
     esp_ble_mesh_register_custom_model_callback(ble_mesh_custom_model_cb);
 
-    err = esp_ble_mesh_init(&provision, &composition);
+    err = esp_ble_mesh_init(&prov, &composition);
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "Failed to initialize mesh stack");
         return err;
