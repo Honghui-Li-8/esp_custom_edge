@@ -10,6 +10,7 @@
 #ifndef _BOARD_H_
 #define _BOARD_H_
 
+#include "sdkconfig.h"
 #include "driver/gpio.h"
 #include "esp_ble_mesh_defs.h"
 

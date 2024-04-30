@@ -73,21 +73,17 @@ static esp_ble_mesh_cfg_srv_t config_server = {
     .relay_retransmit = ESP_BLE_MESH_TRANSMIT(2, 20),
 };
 
-static esp_ble_mesh_model_t root_models[] = {
-    ESP_BLE_MESH_MODEL_CFG_CLI(&config_client),
-    ESP_BLE_MESH_MODEL_CFG_SRV(&config_server),
-};
-
-static const esp_ble_mesh_client_op_pair_t client_op_pair[] = {
-    { ECS_193_MODEL_OP_MESSAGE, ECS_193_MODEL_OP_RESPONSE },
-    { ECS_193_MODEL_OP_BROADCAST, ECS_193_MODEL_OP_EMPTY },
-};
-
 static const esp_ble_mesh_client_op_pair_t fast_prov_cli_op_pair[] = {
     { ESP_BLE_MESH_VND_MODEL_OP_FAST_PROV_INFO_SET,         ESP_BLE_MESH_VND_MODEL_OP_FAST_PROV_INFO_STATUS         },
     { ESP_BLE_MESH_VND_MODEL_OP_FAST_PROV_NET_KEY_ADD,      ESP_BLE_MESH_VND_MODEL_OP_FAST_PROV_NET_KEY_STATUS      },
     { ESP_BLE_MESH_VND_MODEL_OP_FAST_PROV_NODE_ADDR,        ESP_BLE_MESH_VND_MODEL_OP_FAST_PROV_NODE_ADDR_ACK       },
     { ESP_BLE_MESH_VND_MODEL_OP_FAST_PROV_NODE_ADDR_GET,    ESP_BLE_MESH_VND_MODEL_OP_FAST_PROV_NODE_ADDR_STATUS    },
+};
+
+/* Fast Prov Root Model user_data */
+esp_ble_mesh_client_t fast_prov_root = {
+    .op_pair_size = ARRAY_SIZE(fast_prov_cli_op_pair),
+    .op_pair = fast_prov_cli_op_pair,
 };
 
 /* Fast Prov Edge Model user_data */
@@ -109,15 +105,14 @@ example_fast_prov_server_t fast_prov_edge = {
     .state         = STATE_IDLE,
 };
 
+static const esp_ble_mesh_client_op_pair_t client_op_pair[] = {
+    { ECS_193_MODEL_OP_MESSAGE, ECS_193_MODEL_OP_RESPONSE },
+    { ECS_193_MODEL_OP_BROADCAST, ECS_193_MODEL_OP_EMPTY },
+};
+
 static esp_ble_mesh_client_t ecs_193_client = {
     .op_pair_size = ARRAY_SIZE(client_op_pair),
     .op_pair = client_op_pair,
-};
-
-/* Fast Prov Root Model user_data */
-esp_ble_mesh_client_t fast_prov_root = {
-    .op_pair_size = ARRAY_SIZE(fast_prov_cli_op_pair),
-    .op_pair = fast_prov_cli_op_pair,
 };
 
 static esp_ble_mesh_model_op_t client_op[] = { // operation client will "RECEIVED"
@@ -144,6 +139,11 @@ static esp_ble_mesh_model_op_t fast_prov_cli_op[] = {
     ESP_BLE_MESH_MODEL_OP(ESP_BLE_MESH_VND_MODEL_OP_FAST_PROV_NET_KEY_STATUS,       2),
     ESP_BLE_MESH_MODEL_OP(ESP_BLE_MESH_VND_MODEL_OP_FAST_PROV_NODE_ADDR_ACK,        0),
     ESP_BLE_MESH_MODEL_OP_END,
+};
+
+static esp_ble_mesh_model_t root_models[] = {
+    ESP_BLE_MESH_MODEL_CFG_CLI(&config_client),
+    ESP_BLE_MESH_MODEL_CFG_SRV(&config_server),
 };
 
 static esp_ble_mesh_model_t vnd_models[] = {
@@ -202,41 +202,18 @@ static esp_err_t prov_complete(uint16_t net_idx, uint16_t addr, uint8_t flags, u
     return ESP_OK;
 }
 
-static void receive_unprovision_packet(uint8_t dev_uuid[16], uint8_t addr[BLE_MESH_ADDR_LEN],
-                                        esp_ble_mesh_addr_type_t addr_type, uint16_t oob_info,
-                                        uint8_t adv_type, esp_ble_mesh_prov_bearer_t bearer)
+static void provisioner_prov_link_open(esp_ble_mesh_prov_bearer_t bearer)
 {
-    esp_ble_mesh_unprov_dev_add_t add_dev = {0};
-    esp_ble_mesh_dev_add_flag_t flag;
-    esp_err_t err;
+    ESP_LOGI(TAG, "%s: bearer %s", __func__, bearer == ESP_BLE_MESH_PROV_ADV ? "PB-ADV" : "PB-GATT");
+}
 
-    /* In Fast Provisioning, the Provisioner should only use PB-ADV to provision devices. */
-    if (prov_start && (bearer & ESP_BLE_MESH_PROV_ADV)) {
-        /* Checks if the device is a reprovisioned one. */
-        if (example_is_node_exist(dev_uuid) == false) {
-            if ((prov_start_num >= fast_prov_edge.max_node_num) ||
-                    (fast_prov_edge.prov_node_cnt >= fast_prov_edge.max_node_num)) {
-                return;
-            }
-        }
-
-        add_dev.addr_type = (uint8_t)addr_type;
-        add_dev.oob_info = oob_info;
-        add_dev.bearer = (uint8_t)bearer;
-        memcpy(add_dev.uuid, dev_uuid, 16);
-        memcpy(add_dev.addr, addr, BLE_MESH_ADDR_LEN);
-        flag = ADD_DEV_RM_AFTER_PROV_FLAG | ADD_DEV_START_PROV_NOW_FLAG | ADD_DEV_FLUSHABLE_DEV_FLAG;
-        err = esp_ble_mesh_provisioner_add_unprov_dev(&add_dev, flag);
-        if (err != ESP_OK) {
-            ESP_LOGE(TAG, "%s: Failed to start provisioning device", __func__);
-            return;
-        }
-
-        /* If adding unprovisioned device successfully, increase prov_start_num */
-        prov_start_num++;
+static void provisioner_prov_link_close(esp_ble_mesh_prov_bearer_t bearer, uint8_t reason)
+{
+    ESP_LOGI(TAG, "%s: bearer %s, reason 0x%02x", __func__,
+             bearer == ESP_BLE_MESH_PROV_ADV ? "PB-ADV" : "PB-GATT", reason);
+    if (prov_start_num) {
+        prov_start_num--;
     }
-
-    return;
 }
 
 static void provisioner_prov_complete(int node_idx, const uint8_t uuid[16], uint16_t unicast_addr,
@@ -336,6 +313,43 @@ static void provisioner_prov_complete(int node_idx, const uint8_t uuid[16], uint
     }
 }
 
+static void example_recv_unprov_adv_pkt(uint8_t dev_uuid[16], uint8_t addr[BLE_MESH_ADDR_LEN],
+                                        esp_ble_mesh_addr_type_t addr_type, uint16_t oob_info,
+                                        uint8_t adv_type, esp_ble_mesh_prov_bearer_t bearer)
+{
+    esp_ble_mesh_unprov_dev_add_t add_dev = {0};
+    esp_ble_mesh_dev_add_flag_t flag;
+    esp_err_t err;
+
+    /* In Fast Provisioning, the Provisioner should only use PB-ADV to provision devices. */
+    if (prov_start && (bearer & ESP_BLE_MESH_PROV_ADV)) {
+        /* Checks if the device is a reprovisioned one. */
+        if (example_is_node_exist(dev_uuid) == false) {
+            if ((prov_start_num >= fast_prov_edge.max_node_num) ||
+                    (fast_prov_edge.prov_node_cnt >= fast_prov_edge.max_node_num)) {
+                return;
+            }
+        }
+
+        add_dev.addr_type = (uint8_t)addr_type;
+        add_dev.oob_info = oob_info;
+        add_dev.bearer = (uint8_t)bearer;
+        memcpy(add_dev.uuid, dev_uuid, 16);
+        memcpy(add_dev.addr, addr, BLE_MESH_ADDR_LEN);
+        flag = ADD_DEV_RM_AFTER_PROV_FLAG | ADD_DEV_START_PROV_NOW_FLAG | ADD_DEV_FLUSHABLE_DEV_FLAG;
+        err = esp_ble_mesh_provisioner_add_unprov_dev(&add_dev, flag);
+        if (err != ESP_OK) {
+            ESP_LOGE(TAG, "%s: Failed to start provisioning device", __func__);
+            return;
+        }
+
+        /* If adding unprovisioned device successfully, increase prov_start_num */
+        prov_start_num++;
+    }
+
+    return;
+}
+
 static void ble_mesh_provisioning_cb(esp_ble_mesh_prov_cb_event_t event,
                                              esp_ble_mesh_prov_cb_param_t *param)
 {
@@ -376,22 +390,18 @@ static void ble_mesh_provisioning_cb(esp_ble_mesh_prov_cb_event_t event,
         prov_start = true;
         break;
     case ESP_BLE_MESH_PROVISIONER_RECV_UNPROV_ADV_PKT_EVT:
-        receive_unprovision_packet(param->provisioner_recv_unprov_adv_pkt.dev_uuid, param->provisioner_recv_unprov_adv_pkt.addr,
+        example_recv_unprov_adv_pkt(param->provisioner_recv_unprov_adv_pkt.dev_uuid, param->provisioner_recv_unprov_adv_pkt.addr,
                                     param->provisioner_recv_unprov_adv_pkt.addr_type, param->provisioner_recv_unprov_adv_pkt.oob_info,
                                     param->provisioner_recv_unprov_adv_pkt.adv_type, param->provisioner_recv_unprov_adv_pkt.bearer);
         break;
     case ESP_BLE_MESH_PROVISIONER_PROV_LINK_OPEN_EVT:
-        // ESP_LOGI(TAG, "ESP_BLE_MESH_PROVISIONER_PROV_LINK_OPEN_EVT");
-        // ESP_LOGI(TAG, "%s: bearer %s", param->provisioner_prov_link_open.bearer, 
-        //                                 param->provisioner_prov_link_open.bearer == ESP_BLE_MESH_PROV_ADV ? "PB-ADV" : "PB-GATT");
+        ESP_LOGI(TAG, "ESP_BLE_MESH_PROVISIONER_PROV_LINK_OPEN_EVT");
+        provisioner_prov_link_open(param->provisioner_prov_link_open.bearer);
         break;
     case ESP_BLE_MESH_PROVISIONER_PROV_LINK_CLOSE_EVT:
-        // ESP_LOGI(TAG, "ESP_BLE_MESH_PROVISIONER_PROV_LINK_CLOSE_EVT");
-        // ESP_LOGI(TAG, "%s: bearer %s, reason 0x%02x", param->provisioner_prov_link_close.bearer,
-        //             param->provisioner_prov_link_close.bearer == ESP_BLE_MESH_PROV_ADV ? "PB-ADV" : "PB-GATT", param->provisioner_prov_link_close.reason);
-        if (prov_start_num) {
-            prov_start_num--;
-        }
+        ESP_LOGI(TAG, "ESP_BLE_MESH_PROVISIONER_PROV_LINK_CLOSE_EVT");
+        provisioner_prov_link_close(param->provisioner_prov_link_close.bearer,
+                                    param->provisioner_prov_link_close.reason);
         break;
     case ESP_BLE_MESH_PROVISIONER_PROV_COMPLETE_EVT:
         ESP_LOGI(TAG, "ESP_BLE_MESH_PROVISIONER_PROV_COMPLETE_EVT");
@@ -876,13 +886,13 @@ static esp_err_t ble_mesh_init(void)
     //     return err;
     // }
 
-    err = example_fast_prov_server_init(&vnd_models[0]);
+    err = example_fast_prov_server_init(&vnd_models[1]);
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "%s: Failed to initialize fast prov server model", __func__);
         return err;
     }
 
-    err = esp_ble_mesh_client_model_init(&vnd_models[1]);
+    err = esp_ble_mesh_client_model_init(&vnd_models[0]);
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "%s: Failed to initialize fast prov client model", __func__);
         return err;
