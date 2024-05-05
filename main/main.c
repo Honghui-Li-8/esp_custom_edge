@@ -100,6 +100,7 @@ static void execute_uart_command(char* command, size_t cmd_len) {
 
         uart_sendData(NULL, msg_start, msg_length); // sedn back form uart for debugging
         uart_sendMsg(NULL, "-feedback \n"); // sedn back form uart for debugging
+        uart_sendMsg(NULL, node_addr + "--addr-feedback \n"); // sedn back form uart for debugging
         
         ESP_LOGI(TAG_E, "Sending message to address-%d ...", node_addr);
         send_message(node_addr, msg_length, (uint8_t *) msg_start);
