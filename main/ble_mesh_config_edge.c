@@ -89,7 +89,7 @@ esp_ble_mesh_client_t fast_prov_root = {
 /* Fast Prov Edge Model user_data */
 example_fast_prov_server_t fast_prov_edge = {
     .primary_role  = false,
-    .max_node_num  = 6,
+    .max_node_num  = 1,
     .prov_node_cnt = 0x0,
     .unicast_min   = ESP_BLE_MESH_ADDR_UNASSIGNED,
     .unicast_max   = ESP_BLE_MESH_ADDR_UNASSIGNED,
@@ -142,19 +142,19 @@ static esp_ble_mesh_model_op_t fast_prov_cli_op[] = {
 };
 
 static esp_ble_mesh_model_t root_models[] = {
-    ESP_BLE_MESH_MODEL_CFG_CLI(&config_client),
     ESP_BLE_MESH_MODEL_CFG_SRV(&config_server),
+    ESP_BLE_MESH_MODEL_CFG_CLI(&config_client),
 };
 
 static esp_ble_mesh_model_t vnd_models[] = {
-    ESP_BLE_MESH_VENDOR_MODEL(ECS_193_CID, ECS_193_MODEL_ID_FP_CLIENT, fast_prov_cli_op, NULL, &fast_prov_root),
-    ESP_BLE_MESH_VENDOR_MODEL(ECS_193_CID, ECS_193_MODEL_ID_FP_SERVER, fast_prov_srv_op, NULL, &fast_prov_edge),
-    ESP_BLE_MESH_VENDOR_MODEL(ECS_193_CID, ECS_193_MODEL_ID_CLIENT, client_op, NULL, &ecs_193_client), 
+    ESP_BLE_MESH_VENDOR_MODEL(ECS_193_CID, ESP_BLE_MESH_VND_MODEL_ID_FAST_PROV_SRV, fast_prov_srv_op, NULL, &fast_prov_edge),
+    ESP_BLE_MESH_VENDOR_MODEL(ECS_193_CID, ESP_BLE_MESH_VND_MODEL_ID_FAST_PROV_CLI, fast_prov_cli_op, NULL, &fast_prov_root),
     ESP_BLE_MESH_VENDOR_MODEL(ECS_193_CID, ECS_193_MODEL_ID_SERVER, server_op, NULL, NULL),
+    ESP_BLE_MESH_VENDOR_MODEL(ECS_193_CID, ECS_193_MODEL_ID_CLIENT, client_op, NULL, &ecs_193_client),
 };
 
-static esp_ble_mesh_model_t *client_model = &vnd_models[2];
-static esp_ble_mesh_model_t *server_model = &vnd_models[3];
+static esp_ble_mesh_model_t *server_model = &vnd_models[2];
+static esp_ble_mesh_model_t *client_model = &vnd_models[3];
 
 static esp_ble_mesh_elem_t elements[] = {
     ESP_BLE_MESH_ELEMENT(0, root_models, vnd_models),
@@ -192,6 +192,7 @@ static void (*broadcast_handler_cb)(esp_ble_mesh_msg_ctx_t *ctx, uint16_t length
 //-------------------- EDGE Network Functions ----------------
 static esp_err_t prov_complete(uint16_t net_idx, uint16_t addr, uint8_t flags, uint32_t iv_index)
 {
+    ble_mesh_key.net_idx = net_idx;
     fast_prov_edge.net_idx = net_idx;
     ESP_LOGI(TAG, "net_idx 0x%03x, addr 0x%04x", net_idx, addr);
     ESP_LOGI(TAG, "flags 0x%02x, iv_index 0x%08" PRIx32, flags, iv_index);
@@ -202,6 +203,7 @@ static esp_err_t prov_complete(uint16_t net_idx, uint16_t addr, uint8_t flags, u
     return ESP_OK;
 }
 
+//Used in FP Events
 static void provisioner_prov_link_open(esp_ble_mesh_prov_bearer_t bearer)
 {
     ESP_LOGI(TAG, "%s: bearer %s", __func__, bearer == ESP_BLE_MESH_PROV_ADV ? "PB-ADV" : "PB-GATT");
@@ -390,6 +392,7 @@ static void ble_mesh_provisioning_cb(esp_ble_mesh_prov_cb_event_t event,
         prov_start = true;
         break;
     case ESP_BLE_MESH_PROVISIONER_RECV_UNPROV_ADV_PKT_EVT:
+        ESP_LOGI(TAG, "Got Unprovision Event, Trying to check if I can provision");
         example_recv_unprov_adv_pkt(param->provisioner_recv_unprov_adv_pkt.dev_uuid, param->provisioner_recv_unprov_adv_pkt.addr,
                                     param->provisioner_recv_unprov_adv_pkt.addr_type, param->provisioner_recv_unprov_adv_pkt.oob_info,
                                     param->provisioner_recv_unprov_adv_pkt.adv_type, param->provisioner_recv_unprov_adv_pkt.bearer);
@@ -469,6 +472,7 @@ static void ble_mesh_provisioning_cb(esp_ble_mesh_prov_cb_event_t event,
 //     ESP_LOGE(TAG, "Error Message [%s]\n", error_message);
 // }
 
+//Similar to `example_handle_config_app_key_add_evt`
 static esp_err_t custom_model_bind_appkey(uint16_t app_idx) {
     const esp_ble_mesh_comp_t *comp = NULL;
     esp_ble_mesh_elem_t *element = NULL;
@@ -587,10 +591,10 @@ static void ble_mesh_custom_model_cb(esp_ble_mesh_model_cb_event_t event, esp_bl
             ESP_LOGE(TAG, "Failed to send message 0x%06" PRIx32, param->model_send_comp.opcode);
             break;
         }
-        if (param->model_operation.opcode == ESP_BLE_MESH_VND_MODEL_OP_FAST_PROV_INFO_SET || 
-            param->model_operation.opcode == ESP_BLE_MESH_VND_MODEL_OP_FAST_PROV_NET_KEY_ADD ||
-            param->model_operation.opcode == ESP_BLE_MESH_VND_MODEL_OP_FAST_PROV_NODE_ADDR || 
-            param->model_operation.opcode == ESP_BLE_MESH_VND_MODEL_OP_FAST_PROV_NODE_ADDR_GET) {
+        if (param->model_operation.opcode == ESP_BLE_MESH_VND_MODEL_OP_FAST_PROV_INFO_STATUS || 
+            param->model_operation.opcode == ESP_BLE_MESH_VND_MODEL_OP_FAST_PROV_NET_KEY_STATUS ||
+            param->model_operation.opcode == ESP_BLE_MESH_VND_MODEL_OP_FAST_PROV_NODE_ADDR_ACK || 
+            param->model_operation.opcode == ESP_BLE_MESH_VND_MODEL_OP_FAST_PROV_NODE_ADDR_STATUS) {
             //TODO: Read this function, opcode is difference
             err = example_handle_fast_prov_status_send_comp_evt(param->model_send_comp.err_code,
                     param->model_send_comp.opcode,
@@ -697,6 +701,9 @@ static void example_ble_mesh_config_server_cb(esp_ble_mesh_cfg_server_cb_event_t
                                               esp_ble_mesh_cfg_server_cb_param_t *param)
 {
     esp_err_t err;
+
+    ESP_LOGI(TAG, "%s, event = 0x%02x, opcode = 0x%04" PRIx32 ", addr: 0x%04x",
+             __func__, event, param->ctx.recv_op, param->ctx.addr);
 
     if (event == ESP_BLE_MESH_CFG_SERVER_STATE_CHANGE_EVT) {
         switch (param->ctx.recv_op) {
@@ -860,13 +867,15 @@ static esp_err_t ble_mesh_init(void)
 {
     esp_err_t err;
     
+    //check this later
     // ble_mesh_key.net_idx = ESP_BLE_MESH_KEY_PRIMARY;
     ble_mesh_key.app_idx = APP_KEY_IDX;
 
     esp_ble_mesh_register_prov_callback(ble_mesh_provisioning_cb);
-    esp_ble_mesh_register_config_server_callback(example_ble_mesh_config_server_cb);
-    esp_ble_mesh_register_config_client_callback(example_ble_mesh_config_client_cb);
     esp_ble_mesh_register_custom_model_callback(ble_mesh_custom_model_cb);
+    esp_ble_mesh_register_config_client_callback(example_ble_mesh_config_client_cb);
+    esp_ble_mesh_register_config_server_callback(example_ble_mesh_config_server_cb);
+    
 
     err = esp_ble_mesh_init(&prov, &composition);
     if (err != ESP_OK) {
@@ -886,13 +895,13 @@ static esp_err_t ble_mesh_init(void)
     //     return err;
     // }
 
-    err = example_fast_prov_server_init(&vnd_models[1]);
+    err = example_fast_prov_server_init(&vnd_models[0]);
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "%s: Failed to initialize fast prov server model", __func__);
         return err;
     }
 
-    err = esp_ble_mesh_client_model_init(&vnd_models[0]);
+    err = esp_ble_mesh_client_model_init(&vnd_models[1]);
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "%s: Failed to initialize fast prov client model", __func__);
         return err;
