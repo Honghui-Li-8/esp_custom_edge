@@ -62,9 +62,9 @@ static void timeout_handler(esp_ble_mesh_msg_ctx_t *ctx, uint32_t opcode) {
     
 }
 
-
 static void execute_uart_command(char* command, size_t cmd_len) {
-    ESP_LOGI(TAG_M, "execute_command called");
+    ESP_LOGI(TAG_M, "execute_command called - %d byte total", cmd_len);
+
     static const char *TAG_E = "EXE";
     static uint8_t *data_buffer = NULL;
     if (data_buffer == NULL) {
@@ -78,8 +78,8 @@ static void execute_uart_command(char* command, size_t cmd_len) {
     // ============= process and execute commands from net server (from uart) ==================
     // uart command format
     // TB Finish, TB Complete
-    if (strlen(command) < 5) {
-        ESP_LOGE(TAG_E, "Command [%s] too short", command);
+    if (cmd_len < 5) {
+        ESP_LOGE(TAG_E, "Command [%s] with %d byte too short", command, cmd_len);
         return;
     }
     const size_t CMD_LEN = 5;
@@ -98,13 +98,13 @@ static void execute_uart_command(char* command, size_t cmd_len) {
         }
         size_t msg_length = (size_t)msg_len_start[0];
 
-        uart_sendData(NULL, msg_start, msg_length); // sedn back form uart for debugging
-        uart_sendMsg(NULL, "-feedback \n"); // sedn back form uart for debugging
-        uart_sendMsg(NULL, node_addr + "--addr-feedback \n"); // sedn back form uart for debugging
+        // uart_sendData(NULL, msg_start, msg_length); // sedn back form uart for debugging
+        // uart_sendMsg(NULL, "-feedback \n"); // sedn back form uart for debugging
+        // uart_sendMsg(NULL, node_addr + "--addr-feedback \n"); // sedn back form uart for debugging
         
         ESP_LOGI(TAG_E, "Sending message to address-%d ...", node_addr);
         send_message(node_addr, msg_length, (uint8_t *) msg_start);
-        ESP_LOGW(TAG_M, "<- Sended Message [%s]", (char*) msg_start);
+        ESP_LOGW(TAG_M, "<- Sended Message \'%.*s\' to node-%d", msg_length, (char*) msg_start, node_addr);
     } else {
         ESP_LOGE(TAG_E, "Command not Vaild");
     }
@@ -123,11 +123,13 @@ static void uart_task_handler(char *data) {
 
     for (int i = 0; i < UART_BUF_SIZE - strlen(delimiter); i++) {
         if (strncmp(data + i, delimiter, strlen(delimiter)) == 0) {
+            
             // located end of message
             cmd_end = i;
             cmd_len = cmd_end - cmd_start;
+            ESP_LOGE("E", "i:%d, cmd_start:%d, cmd_end:%d, cmd_len:%d", i, cmd_start, cmd_end, cmd_len);
             execute_uart_command(data + cmd_start, cmd_len);
-            cmd_start += strlen(delimiter);
+            cmd_start += cmd_len + strlen(delimiter);
         }
     }
 }
