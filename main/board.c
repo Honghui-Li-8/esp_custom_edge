@@ -24,7 +24,7 @@ extern void printNetworkInfo();
 
 static void button_tap_cb(void* arg)
 {
-    // ESP_LOGW(TAG_W, "button pressed ------------------------- ");
+    ESP_LOGW(TAG_W, "button pressed ------------------------- ");
     // static uint8_t *data_buffer = NULL;
     // if (data_buffer == NULL) {
     //     data_buffer = (uint8_t*)malloc(128);
@@ -36,6 +36,17 @@ static void button_tap_cb(void* arg)
     
     // strcpy((char*)data_buffer, "hello world, this is Edge");
     // send_message(0x0001, strlen("hello world, this is Edge") + 1, data_buffer);
+    static int state = 1;
+    if (state == 1) {
+        gpio_set_level(GPIO_NUM_8, LED_ON);
+        ESP_LOGW(TAG_W, "---ON---");
+        state = 0;
+    }
+    else {
+        gpio_set_level(GPIO_NUM_8, LED_OFF);
+        ESP_LOGW(TAG_W, "---OFF---");
+        state = 1;
+    }
 }
 
 static void board_button_init(void)
@@ -45,6 +56,7 @@ static void board_button_init(void)
         iot_button_set_evt_cb(btn_handle, BUTTON_CB_RELEASE, button_tap_cb, "RELEASE");
     }
 }
+
 
 static void uart_init() {  // Uart ===========================================================
     const int uart_num = UART_NUM;
