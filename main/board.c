@@ -38,12 +38,12 @@ static void button_tap_cb(void* arg)
     // send_message(0x0001, strlen("hello world, this is Edge") + 1, data_buffer);
     static int state = 1;
     if (state == 1) {
-        gpio_set_level(GPIO_NUM_8, LED_ON);
+        gpio_set_level(GPIO_NUM_8, 1);
         ESP_LOGW(TAG_W, "---ON---");
         state = 0;
     }
     else {
-        gpio_set_level(GPIO_NUM_8, LED_OFF);
+        gpio_set_level(GPIO_NUM_8, 0);
         ESP_LOGW(TAG_W, "---OFF---");
         state = 1;
     }

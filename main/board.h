@@ -14,9 +14,9 @@
 #include "driver/gpio.h"
 #include "../Secret/NetworkConfig.h"
 
-#define UART_NUM_H2 UART_NUM_0
-#define TX_PIN_H2 24
-#define RX_PIN_H2 23
+#define UART_NUM_H2 UART_NUM_1 // UART_NUM_0 is used for usb monitor already
+#define TX_PIN_H2 0 // we can define any gpio pin
+#define RX_PIN_H2 1 // we can define any gpio pin
 
 #define UART_NUM    UART_NUM_H2
 #define TXD_PIN     TX_PIN_H2
