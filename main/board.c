@@ -85,7 +85,7 @@ int uart_sendEndOfMsg() {
     return uart_write_bytes(UART_NUM, END_OF_MSG, strlen(END_OF_MSG)); // end of message symbol
 }
 
-int uart_sendData(const char* logName, const char* data, size_t length)
+int uart_sendData(const char* logName, const uint8_t* data, size_t length)
 {
     int txBytes = uart_write_bytes(UART_NUM, data, length);
     txBytes += uart_sendEndOfMsg(); // end of message symbol
