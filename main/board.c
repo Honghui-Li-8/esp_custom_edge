@@ -18,6 +18,7 @@
 
 #define BUTTON_IO_NUM           9
 #define BUTTON_ACTIVE_LEVEL     0
+#define ESCAPE_BYTE 0xFA
 
 extern void send_message(uint16_t dst_address, uint16_t length, uint8_t *data_ptr);
 extern void printNetworkInfo();
@@ -57,7 +58,6 @@ static void board_button_init(void)
     }
 }
 
-
 static void uart_init() {  // Uart ===========================================================
     const int uart_num = UART_NUM;
     const int uart_buffer_size = UART_BUF_SIZE * 2;
@@ -81,33 +81,78 @@ static void uart_init() {  // Uart =============================================
     ESP_LOGI(TAG_B, "Uart init done");
 }
 
-// No longer need this function in futrue
-int uart_sendEndOfMsg() {
-    return uart_write_bytes(UART_NUM, END_OF_MSG, strlen(END_OF_MSG)); // end of message symbol
+// escape char
+int uart_write_encoded_bytes(uart_port_t uart_num, const uint8_t* data, size_t length) {
+    int byte_wrote = 0;
+    for (uint8_t* byte_itr = data; byte_itr < data + length; ++byte_itr) {
+        if (byte_itr[0] < ESCAPE_BYTE) {
+            uart_write_bytes(UART_NUM, byte_itr, 1);
+            byte_wrote += 1;
+            continue;
+        }
+
+        // nned 2 byte encoded
+        uint8_t encoded = byte_itr[0] ^ ESCAPE_BYTE // bitwise Xor
+        uart_write_bytes(UART_NUM, &ESCAPE_BYTE, 1);
+        uart_write_bytes(UART_NUM, &encoded, 1);
+        byte_wrote += 2;
+    }
 }
 
-// TB Finish, need to encode the send data for escape bytes
-int uart_sendData(const char* logName, const uint8_t* data, size_t length)
-{
-    int txBytes = uart_write_bytes(UART_NUM, data, length);
-    txBytes += uart_sendEndOfMsg(); // end of message symbol
+// Able to wrote back to the same buffer, since decoded data is always shorter
+size_t uart_decoded_bytes(const uint8_t* data, size_t length, const uint8_t* decoded_data) {
+    int decoed_len = 0;
+    uint8_t* decode_itr = decoded_data;
 
-    if (logName != NULL) {
-        ESP_LOGI(logName, "Wrote %d bytes on uart-tx", txBytes);
+    // decode_itr always <= byte_itr since decode message always shorter
+    for (uint8_t* byte_itr = data; byte_itr < data + length; ++byte_itr) {
+        if (byte_itr[0] != ESCAPE_BYTE) {
+            // not a ESCAPE_BYTE
+            decode_itr[0] = byte_itr[0];
+            decode_itr += 1;
+            decoed_len += 1;
+            continue;
+        }
+
+        // ESCAPE_BYTE, decode 2 byte into 1
+        uint8_t encoded = byte_itr[1];
+        byte_itr += 1;
+        
+        uint8_t decoded = encoded ^ ESCAPE_BYTE // bitwise Xor
+        decode_itr[0] = decoded;
+        decode_itr += 1;
+        decoed_len += 1;
     }
+    
+    return decoed_len;
+}
+
+
+// TB Finish, need to encode the send data for escape bytes
+int uart_sendData(uint16_t node_addr, const uint8_t* data, size_t length)
+{
+    int txBytes = 0;
+    unsigned char uart_start = 0xFF; // start of uart message
+    unsigned char uart_end = 0xFE;   // end of uart message
+
+    uint16_t node_addr_big_endian = htons(num); 
+    uart_write_bytes(UART_NUM, &uart_start, 1);
+    txBytes += uart_write_encoded_bytes(UART_NUM, &node_addr_big_endian, 2);
+    txBytes += uart_write_encoded_bytes(UART_NUM, data, length);
+    uart_write_bytes(UART_NUM, &uart_end, 1);
+
+    ESP_LOGI("[UART]", "Wrote %d bytes Data on uart-tx", txBytes);
     return txBytes;
 }
 
 // TB Finish, need to encode the send data for escape bytes
-int uart_sendMsg(const char* logName, const char* msg)
+int uart_sendMsg(uint16_t node_addr, const char* msg)
 {
     size_t length = strlen(msg);
     int txBytes = uart_write_bytes(UART_NUM, msg, length);
     txBytes += uart_sendEndOfMsg(); // end of message symbol
 
-    if (logName != NULL) {
-        ESP_LOGI(logName, "Wrote %d bytes on uart-tx", txBytes);
-    }
+    ESP_LOGI("[UART]", "Wrote %d bytes Msg on uart-tx", txBytes);
     return txBytes;
 }
 

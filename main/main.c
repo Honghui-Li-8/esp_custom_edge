@@ -68,7 +68,10 @@ static void timeout_handler(esp_ble_mesh_msg_ctx_t *ctx, uint32_t opcode) {
 }
 
 static void execute_uart_command(char* command, size_t cmd_len) {
-    ESP_LOGI(TAG_M, "execute_command called - %d byte total", cmd_len);
+    size_t cmd_len_raw = cmd_len;
+    cmd_len = uart_decoded_bytes(command, cmd_len);
+
+    ESP_LOGI(TAG_M, "execute_command called - %d byte raw - %d decoded byte", cmd_len_raw,  cmd_len);
 
     static const char *TAG_E = "EXE";
     static uint8_t *data_buffer = NULL;
@@ -121,21 +124,32 @@ static void execute_uart_command(char* command, size_t cmd_len) {
 static void uart_task_handler(char *data) {
     ESP_LOGW(TAG_M, "uart_task_handler called ------------------");
 
-    const char delimiter[] = END_OF_MSG; // end of message delimiter, defined in networkConfig
     int cmd_start = 0;
     int cmd_end = 0;
     int cmd_len = 0;
 
-    for (int i = 0; i < UART_BUF_SIZE - strlen(delimiter); i++) {
-        if (strncmp(data + i, delimiter, strlen(delimiter)) == 0) {
-            
+    for (int i = 0; i < UART_BUF_SIZE; i++) {
+        if (data[i] == 0xFF) {
+            // located start of message
+            cmd_start = i + 1;
+        }
+
+        if (data[i] == 0xFE) {
             // located end of message
             cmd_end = i;
+        }
+
+        if (cmd_end > cmd_start) {
+            // located a message, message at least 1 byte
             cmd_len = cmd_end - cmd_start;
             ESP_LOGE("E", "i:%d, cmd_start:%d, cmd_end:%d, cmd_len:%d", i, cmd_start, cmd_end, cmd_len);
             execute_uart_command(data + cmd_start, cmd_len);
-            cmd_start += cmd_len + strlen(delimiter);
         }
+    }
+
+    if (cmd_start > cmd_end) {
+        // one message is only been read half into buffer, edge case. Not consider at the moment
+        ESP_LOGE("E", "Buffer might have remaining half message!! cmd_start:%d, cmd_end:%d", cmd_start, cmd_end);
     }
 }
 
@@ -149,7 +163,6 @@ static void rx_task(void *arg)
     while (1) {
         const int rxBytes = uart_read_bytes(UART_NUM, data, UART_BUF_SIZE, 1000 / portTICK_PERIOD_MS);
         if (rxBytes > 0) {
-            // data[rxBytes] = 0; // mark end of string
             ESP_LOGI(RX_TASK_TAG, "Read %d bytes: '%s'", rxBytes, data);
 
             uart_task_handler((char*) data);

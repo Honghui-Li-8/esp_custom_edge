@@ -12,6 +12,7 @@
 
 #include "driver/uart.h"
 #include "driver/gpio.h"
+#include <arpa/inet.h>
 #include "../Secret/NetworkConfig.h"
 
 #define UART_NUM_H2 UART_NUM_1 // UART_NUM_0 is used for usb monitor already
