@@ -149,14 +149,17 @@ static void uart_task_handler(char *data) {
             cmd_len = cmd_end - cmd_start;
 
             // --------- test ----------
+            // uart_sendMsg(cmd_len, "[recived]");
+            // uart_sendData(0, command, cmd_len); // encoded byte encode and send back
             ESP_LOGE("Encoded Data", "i:%d, cmd_start:%d, cmd_end:%d, cmd_len:%d", i, cmd_start, cmd_end, cmd_len);
-            uart_write_encoded_bytes(UART_NUM, command, cmd_len); // encoded byte encode and send back
             cmd_len = uart_decoded_bytes(command, cmd_len, command); // decoded cmd will be put back to command pointer
-            uart_write_encoded_bytes(UART_NUM, command, cmd_len); // decoded byte encode and send back
-            ESP_LOGE("Encoded Data", "i:%d, cmd_start:%d, cmd_end:%d, cmd_len:%d", i, cmd_start, cmd_end, cmd_len);
+            ESP_LOGE("Decoded Data", "i:%d, cmd_start:%d, cmd_len:%d", i, cmd_start, cmd_len);
+            
+            // uart_sendMsg(cmd_len, "[esp decoded]");
+            // uart_sendData(0, command, cmd_len); // decoded byte encode and send back
             // --------- test ----------
 
-            // execute_uart_command(data + cmd_start, cmd_len); //TB Finish, don't execute at the moment
+            execute_uart_command(data + cmd_start, cmd_len); //TB Finish, don't execute at the moment
         }
     }
 
@@ -171,14 +174,15 @@ static void uart_task_handler(char *data) {
 static void rx_task(void *arg)
 {
     static const char *RX_TASK_TAG = "RX";
-    esp_log_level_set(RX_TASK_TAG, ESP_LOG_INFO);
     uint8_t* data = (uint8_t*) malloc(UART_BUF_SIZE + 1);
     ESP_LOGW(RX_TASK_TAG, "rx_task called ------------------");
+    esp_log_level_set(TAG_ALL, ESP_LOG_NONE);
 
     while (1) {
         const int rxBytes = uart_read_bytes(UART_NUM, data, UART_BUF_SIZE, 1000 / portTICK_PERIOD_MS);
         if (rxBytes > 0) {
-            ESP_LOGI(RX_TASK_TAG, "Read %d bytes: '%s'", rxBytes, data);
+            // ESP_LOGI(RX_TASK_TAG, "Read %d bytes: '%s'", rxBytes, data);
+            // uart_sendMsg(rxBytes, " readed from RX\n");
 
             uart_task_handler((char*) data);
         }
