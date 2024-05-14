@@ -28,6 +28,8 @@
 #define UART_BUF_SIZE 1024
 
 void board_init(void);
+int uart_write_encoded_bytes(uart_port_t uart_num, const uint8_t* data, size_t length);
+int uart_decoded_bytes(const uint8_t* data, size_t length, const uint8_t* decoded_data);
 int uart_sendData(const char* logName, const uint8_t* data, size_t length);
 int uart_sendMsg(const char* logName, const char* msg);
 

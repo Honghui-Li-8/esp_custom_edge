@@ -69,19 +69,19 @@ static void timeout_handler(esp_ble_mesh_msg_ctx_t *ctx, uint32_t opcode) {
 
 static void execute_uart_command(char* command, size_t cmd_len) {
     size_t cmd_len_raw = cmd_len;
-    cmd_len = uart_decoded_bytes(command, cmd_len);
+    cmd_len = uart_decoded_bytes(command, cmd_len, command); // decoded cmd will be put back to command pointer
 
     ESP_LOGI(TAG_M, "execute_command called - %d byte raw - %d decoded byte", cmd_len_raw,  cmd_len);
 
     static const char *TAG_E = "EXE";
-    static uint8_t *data_buffer = NULL;
-    if (data_buffer == NULL) {
-        data_buffer = (uint8_t*)malloc(128);
-        if (data_buffer == NULL) {
-            printf("Memory allocation failed.\n");
-            return;
-        }
-    }
+    // static uint8_t *data_buffer = NULL;
+    // if (data_buffer == NULL) {
+    //     data_buffer = (uint8_t*)malloc(128);
+    //     if (data_buffer == NULL) {
+    //         printf("Memory allocation failed.\n");
+    //         return;
+    //     }
+    // }
 
     // ============= process and execute commands from net server (from uart) ==================
     // uart command format
@@ -116,7 +116,6 @@ static void execute_uart_command(char* command, size_t cmd_len) {
     } else {
         ESP_LOGE(TAG_E, "Command not Vaild");
     }
-
     
     ESP_LOGI(TAG_E, "Command [%.*s] executed", cmd_len, command);
 }
@@ -131,12 +130,12 @@ static void uart_task_handler(char *data) {
     for (int i = 0; i < UART_BUF_SIZE; i++) {
         if (data[i] == 0xFF) {
             // located start of message
-            cmd_start = i + 1;
+            cmd_start = i + 1; // start byte of actual message
         }
 
         if (data[i] == 0xFE) {
             // located end of message
-            cmd_end = i;
+            cmd_end = i;  // 0xFE byte
         }
 
         if (cmd_end > cmd_start) {
@@ -153,6 +152,8 @@ static void uart_task_handler(char *data) {
     }
 }
 
+// TB Finish, do we need to make sure there isn't haf of message left in buffer
+// when read entire bufffer, no message got read as half, or metho to recover it? 
 static void rx_task(void *arg)
 {
     static const char *RX_TASK_TAG = "RX";

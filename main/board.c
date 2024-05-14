@@ -19,6 +19,8 @@
 #define BUTTON_IO_NUM           9
 #define BUTTON_ACTIVE_LEVEL     0
 #define ESCAPE_BYTE 0xFA
+#define UART_START 0xFA
+#define UART_END 0xFA
 
 extern void send_message(uint16_t dst_address, uint16_t length, uint8_t *data_ptr);
 extern void printNetworkInfo();
@@ -97,14 +99,15 @@ int uart_write_encoded_bytes(uart_port_t uart_num, const uint8_t* data, size_t l
         uart_write_bytes(UART_NUM, &encoded, 1);
         byte_wrote += 2;
     }
+
+    return byte_wrote;
 }
 
 // Able to wrote back to the same buffer, since decoded data is always shorter
-size_t uart_decoded_bytes(const uint8_t* data, size_t length, const uint8_t* decoded_data) {
+int uart_decoded_bytes(const uint8_t* data, size_t length, const uint8_t* decoded_data) {
     int decoed_len = 0;
     uint8_t* decode_itr = decoded_data;
 
-    // decode_itr always <= byte_itr since decode message always shorter
     for (uint8_t* byte_itr = data; byte_itr < data + length; ++byte_itr) {
         if (byte_itr[0] != ESCAPE_BYTE) {
             // not a ESCAPE_BYTE
@@ -115,8 +118,8 @@ size_t uart_decoded_bytes(const uint8_t* data, size_t length, const uint8_t* dec
         }
 
         // ESCAPE_BYTE, decode 2 byte into 1
-        uint8_t encoded = byte_itr[1];
-        byte_itr += 1;
+        byte_itr += 1; // move to next to get encoded byte
+        uint8_t encoded = byte_itr[0];
         
         uint8_t decoded = encoded ^ ESCAPE_BYTE // bitwise Xor
         decode_itr[0] = decoded;
@@ -129,17 +132,16 @@ size_t uart_decoded_bytes(const uint8_t* data, size_t length, const uint8_t* dec
 
 
 // TB Finish, need to encode the send data for escape bytes
+// do we need to regulate the message length?
 int uart_sendData(uint16_t node_addr, const uint8_t* data, size_t length)
 {
     int txBytes = 0;
-    unsigned char uart_start = 0xFF; // start of uart message
-    unsigned char uart_end = 0xFE;   // end of uart message
 
     uint16_t node_addr_big_endian = htons(num); 
-    uart_write_bytes(UART_NUM, &uart_start, 1);
+    txBytes += uart_write_bytes(UART_NUM, &UART_START, 1); // 0xFF
     txBytes += uart_write_encoded_bytes(UART_NUM, &node_addr_big_endian, 2);
     txBytes += uart_write_encoded_bytes(UART_NUM, data, length);
-    uart_write_bytes(UART_NUM, &uart_end, 1);
+    txBytes += uart_write_bytes(UART_NUM, &UART_END, 1);  // 0xFE
 
     ESP_LOGI("[UART]", "Wrote %d bytes Data on uart-tx", txBytes);
     return txBytes;
