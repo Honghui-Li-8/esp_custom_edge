@@ -84,18 +84,20 @@ static void uart_init() {  // Uart =============================================
 }
 
 // escape char
-int uart_write_encoded_bytes(uart_port_t uart_num, const uint8_t* data, size_t length) {
+int uart_write_encoded_bytes(uart_port_t uart_num, uint8_t* data, size_t length) {
+    uint8_t esacpe_byte = ESCAPE_BYTE;
+
     int byte_wrote = 0;
     for (uint8_t* byte_itr = data; byte_itr < data + length; ++byte_itr) {
-        if (byte_itr[0] < ESCAPE_BYTE) {
+        if (byte_itr[0] < esacpe_byte) {
             uart_write_bytes(UART_NUM, byte_itr, 1);
             byte_wrote += 1;
             continue;
         }
 
         // nned 2 byte encoded
-        uint8_t encoded = byte_itr[0] ^ ESCAPE_BYTE // bitwise Xor
-        uart_write_bytes(UART_NUM, &ESCAPE_BYTE, 1);
+        uint8_t encoded = byte_itr[0] ^ esacpe_byte; // bitwise Xor
+        uart_write_bytes(UART_NUM, &esacpe_byte, 1);
         uart_write_bytes(UART_NUM, &encoded, 1);
         byte_wrote += 2;
     }
@@ -104,7 +106,7 @@ int uart_write_encoded_bytes(uart_port_t uart_num, const uint8_t* data, size_t l
 }
 
 // Able to wrote back to the same buffer, since decoded data is always shorter
-int uart_decoded_bytes(const uint8_t* data, size_t length, const uint8_t* decoded_data) {
+int uart_decoded_bytes(uint8_t* data, size_t length, uint8_t* decoded_data) {
     int decoed_len = 0;
     uint8_t* decode_itr = decoded_data;
 
@@ -121,7 +123,7 @@ int uart_decoded_bytes(const uint8_t* data, size_t length, const uint8_t* decode
         byte_itr += 1; // move to next to get encoded byte
         uint8_t encoded = byte_itr[0];
         
-        uint8_t decoded = encoded ^ ESCAPE_BYTE // bitwise Xor
+        uint8_t decoded = encoded ^ ESCAPE_BYTE; // bitwise Xor
         decode_itr[0] = decoded;
         decode_itr += 1;
         decoed_len += 1;
@@ -133,26 +135,35 @@ int uart_decoded_bytes(const uint8_t* data, size_t length, const uint8_t* decode
 
 // TB Finish, need to encode the send data for escape bytes
 // do we need to regulate the message length?
-int uart_sendData(uint16_t node_addr, const uint8_t* data, size_t length)
+int uart_sendData(uint16_t node_addr, uint8_t* data, size_t length)
 {
+    uint8_t uart_start = UART_START;
+    uint8_t uart_end = UART_END;
     int txBytes = 0;
 
-    uint16_t node_addr_big_endian = htons(num); 
-    txBytes += uart_write_bytes(UART_NUM, &UART_START, 1); // 0xFF
-    txBytes += uart_write_encoded_bytes(UART_NUM, &node_addr_big_endian, 2);
+    uint16_t node_addr_big_endian = htons(node_addr); 
+    txBytes += uart_write_bytes(UART_NUM, &uart_start, 1); // 0xFF
+    txBytes += uart_write_encoded_bytes(UART_NUM, (uint8_t*) &node_addr_big_endian, 2);
     txBytes += uart_write_encoded_bytes(UART_NUM, data, length);
-    txBytes += uart_write_bytes(UART_NUM, &UART_END, 1);  // 0xFE
+    txBytes += uart_write_bytes(UART_NUM, &uart_end, 1);  // 0xFE
 
     ESP_LOGI("[UART]", "Wrote %d bytes Data on uart-tx", txBytes);
     return txBytes;
 }
 
 // TB Finish, need to encode the send data for escape bytes
-int uart_sendMsg(uint16_t node_addr, const char* msg)
+int uart_sendMsg(uint16_t node_addr, char* msg)
 {
     size_t length = strlen(msg);
-    int txBytes = uart_write_bytes(UART_NUM, msg, length);
-    txBytes += uart_sendEndOfMsg(); // end of message symbol
+    uint8_t uart_start = UART_START;
+    uint8_t uart_end = UART_END;
+    int txBytes = 0;
+
+    uint16_t node_addr_big_endian = htons(node_addr); 
+    txBytes += uart_write_bytes(UART_NUM, &uart_start, 1); // 0xFF
+    txBytes += uart_write_encoded_bytes(UART_NUM, (uint8_t*) &node_addr_big_endian, 2);
+    txBytes += uart_write_encoded_bytes(UART_NUM, (uint8_t*) msg, length);
+    txBytes += uart_write_bytes(UART_NUM, &uart_end, 1);  // 0xFE
 
     ESP_LOGI("[UART]", "Wrote %d bytes Msg on uart-tx", txBytes);
     return txBytes;

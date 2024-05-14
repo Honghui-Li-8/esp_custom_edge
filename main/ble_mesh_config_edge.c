@@ -375,7 +375,7 @@ static esp_err_t ble_mesh_init(void)
     return ESP_OK;
 }
 
-static esp_err_t esp_module_edge_init(
+esp_err_t esp_module_edge_init(
     void (*prov_complete_handler)(uint16_t node_index, const esp_ble_mesh_octet16_t uuid, uint16_t addr, uint8_t element_num, uint16_t net_idx),
     void (*config_complete_handler)(uint16_t addr),
     void (*recv_message_handler)(esp_ble_mesh_msg_ctx_t *ctx, uint16_t length, uint8_t *msg_ptr),

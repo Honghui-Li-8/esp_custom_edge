@@ -11,7 +11,7 @@ static void prov_complete_handler(uint16_t node_index, const esp_ble_mesh_octet1
 
 static void config_complete_handler(uint16_t addr) {
     ESP_LOGI(TAG_M,  " ----------- Node-0x%04x config_complete -----------", addr);
-    uart_sendMsg(NULL,  " ----------- config_complete -----------");
+    uart_sendMsg(0,  " ----------- config_complete -----------");
 }
 
 static void recv_message_handler(esp_ble_mesh_msg_ctx_t *ctx, uint16_t length, uint8_t *msg_ptr) {
@@ -69,7 +69,6 @@ static void timeout_handler(esp_ble_mesh_msg_ctx_t *ctx, uint32_t opcode) {
 
 static void execute_uart_command(char* command, size_t cmd_len) {
     size_t cmd_len_raw = cmd_len;
-    cmd_len = uart_decoded_bytes(command, cmd_len, command); // decoded cmd will be put back to command pointer
 
     ESP_LOGI(TAG_M, "execute_command called - %d byte raw - %d decoded byte", cmd_len_raw,  cmd_len);
 
@@ -106,9 +105,9 @@ static void execute_uart_command(char* command, size_t cmd_len) {
         }
         size_t msg_length = (size_t)msg_len_start[0];
 
-        // uart_sendData(NULL, msg_start, msg_length); // sedn back form uart for debugging
-        // uart_sendMsg(NULL, "-feedback \n"); // sedn back form uart for debugging
-        // uart_sendMsg(NULL, node_addr + "--addr-feedback \n"); // sedn back form uart for debugging
+        // uart_sendData(0, msg_start, msg_length); // sedn back form uart for debugging
+        // uart_sendMsg(0, "-feedback \n"); // sedn back form uart for debugging
+        // uart_sendMsg(0, node_addr + "--addr-feedback \n"); // sedn back form uart for debugging
         
         ESP_LOGI(TAG_E, "Sending message to address-%d ...", node_addr);
         send_message(node_addr, msg_length, (uint8_t *) msg_start);
@@ -119,6 +118,12 @@ static void execute_uart_command(char* command, size_t cmd_len) {
     
     ESP_LOGI(TAG_E, "Command [%.*s] executed", cmd_len, command);
 }
+
+// static void print_bytes(char* data, size_t length) {
+//     for(int i = 0; i< length; ++i) {
+        
+//     }
+// }
 
 static void uart_task_handler(char *data) {
     ESP_LOGW(TAG_M, "uart_task_handler called ------------------");
@@ -140,9 +145,18 @@ static void uart_task_handler(char *data) {
 
         if (cmd_end > cmd_start) {
             // located a message, message at least 1 byte
+            uint8_t* command = (uint8_t *) (data + cmd_start);
             cmd_len = cmd_end - cmd_start;
-            ESP_LOGE("E", "i:%d, cmd_start:%d, cmd_end:%d, cmd_len:%d", i, cmd_start, cmd_end, cmd_len);
-            execute_uart_command(data + cmd_start, cmd_len);
+
+            // --------- test ----------
+            ESP_LOGE("Encoded Data", "i:%d, cmd_start:%d, cmd_end:%d, cmd_len:%d", i, cmd_start, cmd_end, cmd_len);
+            uart_write_encoded_bytes(UART_NUM, command, cmd_len); // encoded byte encode and send back
+            cmd_len = uart_decoded_bytes(command, cmd_len, command); // decoded cmd will be put back to command pointer
+            uart_write_encoded_bytes(UART_NUM, command, cmd_len); // decoded byte encode and send back
+            ESP_LOGE("Encoded Data", "i:%d, cmd_start:%d, cmd_end:%d, cmd_len:%d", i, cmd_start, cmd_end, cmd_len);
+            // --------- test ----------
+
+            // execute_uart_command(data + cmd_start, cmd_len); //TB Finish, don't execute at the moment
         }
     }
 
@@ -178,7 +192,7 @@ void app_main(void)
     //              - since the message from uart carries data
     //              - use uart_sendMsg or uart_sendData for message, the esp_log for dev debug
     esp_log_level_set(TAG_ALL, ESP_LOG_NONE);
-    uart_sendMsg(TAG_M, "[Ignore_prev][UART] Turning off all Log's from esp_log\n");
+    uart_sendMsg(0, "[Ignore_prev][UART] Turning off all Log's from esp_log\n");
 
     esp_err_t err = esp_module_edge_init(prov_complete_handler, config_complete_handler, recv_message_handler, recv_response_handler, timeout_handler);
     if (err != ESP_OK) {
