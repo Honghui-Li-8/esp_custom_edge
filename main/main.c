@@ -80,6 +80,50 @@ static void broadcast_handler(esp_ble_mesh_msg_ctx_t *ctx, uint16_t length, uint
     return;
 }
 
+// //maybe change the name, it doesn't fit right
+// static void connectivity_handler(esp_ble_mesh_msg_ctx_t *ctx, uint16_t length, uint8_t *msg_ptr) {
+//     ESP_LOGI(TAG_M, "Checking connectivity\n");
+
+//     static uint8_t *data_buffer = NULL;
+//     if (data_buffer == NULL) {
+//         data_buffer = (uint8_t*)malloc(128);
+//         if (data_buffer == NULL) {
+//             printf("Memory allocation failed.\n");
+//             return;
+//         }
+//     }
+//     /*Check if edge is still connected to root, don't need to a respond back.
+//     //DISCLAIMER, since this function would repeat every few seconds, if edge is still trying to sent message by the time the timer start, i should probably continue to the next one
+//     //the variable timeout_happened should be local, i dont think it needs to be static
+//     while timeout_happened < 3
+//         send a message to root
+//         //i should make it return something to signify that it succeed or not, return 1 if fail, return 
+//         if timeout happened
+//             incremennt
+//         if timeout >= 3
+//             print or log saying something about it being disconnected?
+//             reset the board using board_button_init function
+    
+//     if succeed then don't do anything
+//     */
+//     int timeout_happened = 0;
+//     while (timeout_happened < 3) {
+//         // send message back (initate communication)
+//         ESP_LOGI(TAG_M, "----------- (send_message) iniate message for checking purposes -----------");
+//         strcpy((char*)data_buffer, "hello world, this is Edge");
+//         send_message(ctx->addr, strlen("hello world, this is Edge") + 1, data_buffer);
+//         ESP_LOGW(TAG_M, "<- Sended Message [%s]", (char*)data_buffer);
+//         // i should change send_message to something else for modification
+//         //if timeout happened
+//             //timeout_happened++;
+//         //if timeout_happened >= 3 {
+//         //     ESP_LOGI(TAG_M, "----------- (send_message) iniate message for checking purposes -----------");
+//         //     board_init();
+//         // }
+//     }
+//     ESP_LOGI(TAG_M, "Edge is still connected :)");
+// }
+
 void app_main(void)
 {
     esp_err_t err;
