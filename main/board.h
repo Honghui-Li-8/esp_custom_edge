@@ -16,13 +16,13 @@
 #include "../Secret/NetworkConfig.h"
 
 // Dev mode send uart signal to usb-uart port
-#define UART_NUM_H2 UART_NUM_0 // defult log port
-#define TX_PIN_H2 24 // dpin connected with usb-uart
-#define RX_PIN_H2 23 // dpin connected with usb-uart
+// #define UART_NUM_H2 UART_NUM_0 // defult log port
+// #define TX_PIN_H2 24 // dpin connected with usb-uart
+// #define RX_PIN_H2 23 // dpin connected with usb-uart
 
-// #define UART_NUM_H2 UART_NUM_1 // UART_NUM_0 is used for usb monitor already
-// #define TX_PIN_H2 0 // we can define any gpio pin
-// #define RX_PIN_H2 1 // we can define any gpio pin
+#define UART_NUM_H2 UART_NUM_1 // UART_NUM_0 is used for usb monitor already
+#define TX_PIN_H2 0 // we can define any gpio pin
+#define RX_PIN_H2 1 // we can define any gpio pin
 
 #define UART_NUM    UART_NUM_H2
 #define TXD_PIN     TX_PIN_H2
@@ -31,6 +31,12 @@
 #define CTS_PIN     UART_PIN_NO_CHANGE // not using
 #define UART_BAUD_RATE 115200
 #define UART_BUF_SIZE 1024
+
+#define BUTTON_IO_NUM           9
+#define BUTTON_ACTIVE_LEVEL     0
+#define ESCAPE_BYTE 0xFA
+#define UART_START 0xFF
+#define UART_END 0xFE
 
 void board_init(void);
 int uart_write_encoded_bytes(uart_port_t uart_num, uint8_t* data, size_t length);

@@ -16,12 +16,6 @@
 #define TAG_B "BOARD"
 #define TAG_W "Debug"
 
-#define BUTTON_IO_NUM           9
-#define BUTTON_ACTIVE_LEVEL     0
-#define ESCAPE_BYTE 0xFA
-#define UART_START 0xFF
-#define UART_END 0xFE
-
 extern void send_message(uint16_t dst_address, uint16_t length, uint8_t *data_ptr);
 extern void printNetworkInfo();
 

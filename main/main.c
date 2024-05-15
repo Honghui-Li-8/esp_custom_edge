@@ -136,9 +136,7 @@ static void uart_task_handler(char *data) {
         if (data[i] == 0xFF) {
             // located start of message
             cmd_start = i + 1; // start byte of actual message
-        }
-
-        if (data[i] == 0xFE) {
+        }else if (data[i] == 0xFE) {
             // located end of message
             cmd_end = i;  // 0xFE byte
         }
@@ -147,17 +145,8 @@ static void uart_task_handler(char *data) {
             // located a message, message at least 1 byte
             uint8_t* command = (uint8_t *) (data + cmd_start);
             cmd_len = cmd_end - cmd_start;
-
-            // --------- test ----------
-            // uart_sendMsg(cmd_len, "[recived]");
-            // uart_sendData(0, command, cmd_len); // encoded byte encode and send back
-            ESP_LOGE("Encoded Data", "i:%d, cmd_start:%d, cmd_end:%d, cmd_len:%d", i, cmd_start, cmd_end, cmd_len);
             cmd_len = uart_decoded_bytes(command, cmd_len, command); // decoded cmd will be put back to command pointer
             ESP_LOGE("Decoded Data", "i:%d, cmd_start:%d, cmd_len:%d", i, cmd_start, cmd_len);
-            
-            // uart_sendMsg(cmd_len, "[esp decoded]");
-            // uart_sendData(0, command, cmd_len); // decoded byte encode and send back
-            // --------- test ----------
 
             execute_uart_command(data + cmd_start, cmd_len); //TB Finish, don't execute at the moment
         }
@@ -166,6 +155,7 @@ static void uart_task_handler(char *data) {
     if (cmd_start > cmd_end) {
         // one message is only been read half into buffer, edge case. Not consider at the moment
         ESP_LOGE("E", "Buffer might have remaining half message!! cmd_start:%d, cmd_end:%d", cmd_start, cmd_end);
+        uart_sendMsg(0, "[Error] Buffer might have remaining half message!!\n");
     }
 }
 
