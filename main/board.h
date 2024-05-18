@@ -48,6 +48,11 @@ struct _led_state {
     char *name;
 };
 
+void startTimer();
+double getTimeElapsed();
+bool getTimeout();
+void setTimeout(bool boolean);
+
 void board_led_operation(uint8_t pin, uint8_t onoff);
 
 void board_init(void);

@@ -11,6 +11,8 @@
 #include "esp_log.h"
 #include "iot_button.h"
 #include <string.h>
+#include <time.h>
+#include "board.h"
 
 #define TAG "BOARD"
 #define TAG_W "Debug"
@@ -21,6 +23,26 @@
 extern void send_message(uint16_t dst_address, uint16_t length, uint8_t *data_ptr);
 extern void send_broadcast(uint16_t length, uint8_t *data_ptr);
 extern void printNetworkInfo();
+
+clock_t start_time;
+bool timeout = false;
+
+void startTimer() {
+    start_time = clock();
+}
+
+void setTimeout(bool boolean) {
+    timeout = boolean;
+}
+
+double getTimeElapsed() {
+    clock_t end_time = clock();
+    return ((double) (end_time - start_time)) / CLOCKS_PER_SEC;
+}
+
+bool getTimeout() {
+    return timeout;
+}
 
 static void button_tap_cb(void* arg)
 {

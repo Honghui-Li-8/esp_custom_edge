@@ -8,6 +8,7 @@
 #include "nvs_flash.h"
 #include "esp_bt.h"
 #include "esp_timer.h"
+#include "board.h"
 
 #include "esp_ble_mesh_defs.h"
 #include "esp_ble_mesh_common_api.h"
@@ -83,6 +84,7 @@ static esp_ble_mesh_model_t root_models[] = {
 static const esp_ble_mesh_client_op_pair_t client_op_pair[] = {
     { ECS_193_MODEL_OP_MESSAGE, ECS_193_MODEL_OP_RESPONSE },
     { ECS_193_MODEL_OP_BROADCAST, NULL },
+    { ECS_193_MODEL_OP_CONNECTIVITY, ECS_193_MODEL_OP_RESPONSE},
 };
 
 static esp_ble_mesh_client_t ecs_193_client = {
@@ -98,6 +100,7 @@ static esp_ble_mesh_model_op_t client_op[] = { // operation client will "RECEIVE
 static esp_ble_mesh_model_op_t server_op[] = { // operation server will "RECEIVED"
     ESP_BLE_MESH_MODEL_OP(ECS_193_MODEL_OP_MESSAGE, 2),
     ESP_BLE_MESH_MODEL_OP(ECS_193_MODEL_OP_BROADCAST, 2),
+    ESP_BLE_MESH_MODEL_OP(ECS_193_MODEL_OP_CONNECTIVITY, 2),
     ESP_BLE_MESH_MODEL_OP_END,
 };
 
@@ -119,6 +122,7 @@ static esp_ble_mesh_comp_t composition = { // composition of current module
     .element_count = ARRAY_SIZE(elements),
 };
 
+esp_timer_handle_t periodic_timer;
 
 // -------------------- application level callback functions ------------------
 static void (*prov_complete_handler_cb)(uint16_t node_index, const esp_ble_mesh_octet16_t uuid, uint16_t addr, uint8_t element_num, uint16_t net_idx) = NULL;
@@ -126,6 +130,7 @@ static void (*recv_message_handler_cb)(esp_ble_mesh_msg_ctx_t *ctx, uint16_t len
 static void (*recv_response_handler_cb)(esp_ble_mesh_msg_ctx_t *ctx, uint16_t length, uint8_t *msg_ptr) = NULL;
 static void (*timeout_handler_cb)(esp_ble_mesh_msg_ctx_t *ctx, uint32_t opcode) = NULL;
 static void (*broadcast_handler_cb)(esp_ble_mesh_msg_ctx_t *ctx, uint16_t length, uint8_t *msg_ptr) = NULL;
+static void (*connectivity_handler_cb)(esp_ble_mesh_msg_ctx_t *ctx, uint16_t length, uint8_t *msg_ptr) = NULL;;
 
 
 //-------------------- EDGE Network Functions ----------------
@@ -139,6 +144,12 @@ static esp_err_t prov_complete(uint16_t net_idx, uint16_t addr, uint8_t flags, u
     prov_complete_handler_cb(0, dev_uuid, addr, 0, net_idx);
 
     return ESP_OK;
+}
+
+static void periodic_timer_callback(void* arg)
+{
+    int64_t time_since_boot = esp_timer_get_time();
+    ESP_LOGI(TAG, "Periodic timer called, time since boot: %lld us", time_since_boot);
 }
 
 static void ble_mesh_provisioning_cb(esp_ble_mesh_prov_cb_event_t event,
@@ -184,9 +195,7 @@ static void ble_mesh_provisioning_cb(esp_ble_mesh_prov_cb_event_t event,
 //             return;
 //         }
 //     }
-
 //     const char *error_message = esp_err_to_name_r(error_code, (char*) data_buffer, 128);
-    
 //     ESP_LOGE(TAG, "Error Message [%s]\n", error_message);
 // }
 
@@ -269,6 +278,8 @@ static void ble_mesh_custom_model_cb(esp_ble_mesh_model_cb_event_t event, esp_bl
             recv_response_handler_cb(param->model_operation.ctx, param->model_operation.length, param->model_operation.msg);
         } else if (param->model_operation.opcode == ECS_193_MODEL_OP_BROADCAST) {
             broadcast_handler_cb(param->model_operation.ctx, param->model_operation.length, param->model_operation.msg);
+        } else if (param->model_operation.opcode == ECS_193_MODEL_OP_CONNECTIVITY) {
+            connectivity_handler_cb(param->model_operation.ctx, param->model_operation.length, param->model_operation.msg);
         }
         
         break;
@@ -315,6 +326,7 @@ void send_message(uint16_t dst_address, uint16_t length, uint8_t *data_ptr)
         ESP_LOGE(TAG, "Failed to send message to node addr 0x%04x, err_code %d", dst_address, err);
         return;
     }
+    
 }
 
 void send_broadcast(uint16_t length, uint8_t *data_ptr)
@@ -341,6 +353,32 @@ void send_broadcast(uint16_t length, uint8_t *data_ptr)
     }
 }
 
+void send_connectivity(uint16_t dst_address, uint16_t length, uint8_t *data_ptr)
+{
+    esp_ble_mesh_msg_ctx_t ctx = {0};
+    uint32_t opcode = ECS_193_MODEL_OP_CONNECTIVITY;
+    esp_ble_mesh_dev_role_t message_role = MSG_ROLE;
+    esp_err_t err = ESP_OK;
+
+    // ESP_LOGW(TAG, "net_idx: %" PRIu16, ble_mesh_key.net_idx);
+    // ESP_LOGW(TAG, "app_idx: %" PRIu16, ble_mesh_key.app_idx);
+    // ESP_LOGW(TAG, "dst_address: %" PRIu16, dst_address);
+
+    ctx.net_idx = ble_mesh_key.net_idx;
+    ctx.app_idx = ble_mesh_key.app_idx;
+    ctx.addr = dst_address;
+    ctx.send_ttl = MSG_SEND_TTL;
+    
+    ESP_LOGI(TAG, "Trying to ping root\n");
+
+    err = esp_ble_mesh_client_model_send_msg(client_model, &ctx, opcode, length, data_ptr, MSG_TIMEOUT, true, message_role);
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to send message to node addr 0x%04x, err_code %d", dst_address, err);
+        return;
+    }
+    
+}
+
 void send_response(esp_ble_mesh_msg_ctx_t *ctx, uint16_t length, uint8_t *data_ptr)
 {
     uint32_t opcode = ECS_193_MODEL_OP_RESPONSE;
@@ -356,8 +394,42 @@ void send_response(esp_ble_mesh_msg_ctx_t *ctx, uint16_t length, uint8_t *data_p
         ESP_LOGE(TAG, "Failed to send message to node addr 0x%04x, err_code %d", ctx->addr, err);
         return;
     }
+    
 }
 
+void send_connectivity_wrapper(void *arg) {
+    static uint8_t *data_buffer = NULL;
+    if (data_buffer == NULL) {
+        data_buffer = (uint8_t*)malloc(128);
+        if (data_buffer == NULL) {
+            printf("Memory allocation failed.\n");
+            return;
+        }
+    }
+    
+    strcpy((char*)data_buffer, "Connectivitiy sent");
+
+    send_connectivity(PROV_OWN_ADDR, strlen("Connectivity sent") + 1, data_buffer);
+}
+
+void loop_message_connection() {
+    ESP_LOGI(TAG, "-- LOOP MESSAGE STARTED --\n");
+    const esp_timer_create_args_t periodic_timer_args = {
+            .callback = &send_connectivity_wrapper,
+            // .callback = &periodic_timer_callback,
+            /* name is optional, but may help identify the timer when debugging */
+            .name = "periodic"
+    };
+
+    ESP_ERROR_CHECK(esp_timer_create(&periodic_timer_args, &periodic_timer));
+
+    ESP_ERROR_CHECK(esp_timer_start_periodic(periodic_timer, 5000000));
+    ESP_LOGI(TAG, "Started periodic timers, time since boot: %lld us", esp_timer_get_time());
+}
+
+void stop_timer() {
+    ESP_ERROR_CHECK(esp_timer_delete(periodic_timer));
+}
 // ========================= our function ==================================
 
 static void example_ble_mesh_config_server_cb(esp_ble_mesh_cfg_server_cb_event_t event,
@@ -557,7 +629,8 @@ static esp_err_t esp_module_edge_init(
     void (*recv_message_handler)(esp_ble_mesh_msg_ctx_t *ctx, uint16_t length, uint8_t *msg_ptr),
     void (*recv_response_handler)(esp_ble_mesh_msg_ctx_t *ctx, uint16_t length, uint8_t *msg_ptr),
     void (*timeout_handler)(esp_ble_mesh_msg_ctx_t *ctx, uint32_t opcode),
-    void (*broadcast_handler)(esp_ble_mesh_msg_ctx_t *ctx, uint16_t length, uint8_t *msg_ptr)
+    void (*broadcast_handler)(esp_ble_mesh_msg_ctx_t *ctx, uint16_t length, uint8_t *msg_ptr),
+    void (*connectivity_handler)(esp_ble_mesh_msg_ctx_t *ctx, uint16_t length, uint8_t *msg_ptr)
 ) {
     esp_err_t err;
 
@@ -569,7 +642,9 @@ static esp_err_t esp_module_edge_init(
     recv_response_handler_cb = recv_response_handler;
     timeout_handler_cb = timeout_handler;
     broadcast_handler_cb = broadcast_handler;
-    if (prov_complete_handler_cb == NULL || recv_message_handler_cb == NULL || recv_response_handler_cb == NULL || timeout_handler_cb == NULL || broadcast_handler_cb == NULL) {
+    connectivity_handler_cb = connectivity_handler;
+    if (prov_complete_handler_cb == NULL || recv_message_handler_cb == NULL || recv_response_handler_cb == NULL || 
+        timeout_handler_cb == NULL || broadcast_handler_cb == NULL || timeout_handler_cb == NULL || connectivity_handler_cb == NULL) {
         ESP_LOGE(TAG, "Application Level Callback function is NULL");
         return ESP_FAIL;
     }
@@ -598,5 +673,7 @@ static esp_err_t esp_module_edge_init(
     }
 
     ESP_LOGI(TAG, "Done Initializing...");
+    
     return ESP_OK;
+
 }
