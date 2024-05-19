@@ -28,6 +28,7 @@
 #define TAG TAG_EDGE
 #define TAG_W "Debug"
 #define TAG_INFO "Net_Info"
+#define timer_for_ping 6000000 //6 seconds
 
 static uint8_t dev_uuid[ESP_BLE_MESH_OCTET16_LEN] = INIT_UUID_MATCH;
 static struct esp_ble_mesh_key {
@@ -413,7 +414,7 @@ void send_connectivity_wrapper(void *arg) {
 }
 
 void loop_message_connection() {
-    ESP_LOGI(TAG, "-- LOOP MESSAGE STARTED --\n");
+    ESP_LOGI(TAG, "----- LOOP MESSAGE STARTED -----\n");
     const esp_timer_create_args_t periodic_timer_args = {
             .callback = &send_connectivity_wrapper,
             // .callback = &periodic_timer_callback,
@@ -423,7 +424,7 @@ void loop_message_connection() {
 
     ESP_ERROR_CHECK(esp_timer_create(&periodic_timer_args, &periodic_timer));
 
-    ESP_ERROR_CHECK(esp_timer_start_periodic(periodic_timer, 5000000));
+    ESP_ERROR_CHECK(esp_timer_start_periodic(periodic_timer, timer_for_ping));
     ESP_LOGI(TAG, "Started periodic timers, time since boot: %lld us", esp_timer_get_time());
 }
 

@@ -84,7 +84,7 @@ static void timeout_handler(esp_ble_mesh_msg_ctx_t *ctx, uint32_t opcode) {
         startTimer();
         setTimeout(true);
     }
-    else if(getTimeElapsed() > 5.0) // that means timeout already happened once
+    else if(getTimeElapsed() > 20.0) // that means timeout already happened once -- and if timeout persist for 20 seconds then reset itself.
     {
         stop_timer();
         ESP_LOGI(TAG_M, " Resetting the Board ");
