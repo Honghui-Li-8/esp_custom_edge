@@ -4,23 +4,12 @@
 #include <string.h>
 #include <inttypes.h>
 
-#include "esp_log.h"
-#include "nvs_flash.h"
-#include "esp_bt.h"
-#include "esp_timer.h"
 #include "board.h"
-
-#include "esp_ble_mesh_defs.h"
-#include "esp_ble_mesh_common_api.h"
-#include "esp_ble_mesh_provisioning_api.h"
-#include "esp_ble_mesh_networking_api.h"
-#include "esp_ble_mesh_config_model_api.h"
+#include "ble_mesh_config_edge.h"
 #include "esp_ble_mesh_local_data_operation_api.h"
 #if CONFIG_BLE_MESH_RPR_SRV
 #include "esp_ble_mesh_rpr_model_api.h"
 #endif
-
-#include "ble_mesh_example_init.h"
 
 #include "../Secret/NetworkConfig.h"
 
@@ -134,6 +123,7 @@ esp_timer_handle_t periodic_timer;
 
 // -------------------- application level callback functions ------------------
 static void (*prov_complete_handler_cb)(uint16_t node_index, const esp_ble_mesh_octet16_t uuid, uint16_t addr, uint8_t element_num, uint16_t net_idx) = NULL;
+static void (*config_complete_handler_cb)(uint16_t addr) = NULL;
 static void (*recv_message_handler_cb)(esp_ble_mesh_msg_ctx_t *ctx, uint16_t length, uint8_t *msg_ptr) = NULL;
 static void (*recv_response_handler_cb)(esp_ble_mesh_msg_ctx_t *ctx, uint16_t length, uint8_t *msg_ptr) = NULL;
 static void (*timeout_handler_cb)(esp_ble_mesh_msg_ctx_t *ctx, uint32_t opcode) = NULL;
@@ -406,6 +396,15 @@ void send_response(esp_ble_mesh_msg_ctx_t *ctx, uint16_t length, uint8_t *data_p
     
 }
 
+
+static esp_err_t config_complete(esp_ble_mesh_msg_ctx_t ctx) {
+
+    u_int16_t node_addr = ctx.addr;
+    config_complete_handler_cb(node_addr);
+    return ESP_OK;
+}
+
+
 void send_connectivity_wrapper(void *arg) {
     static uint8_t *data_buffer = NULL;
     if (data_buffer == NULL) {
@@ -639,8 +638,10 @@ static void periodic_state_callback(void* arg)
     ESP_LOGI(TAG, "Current Node State: %d", nodeState);
 }
 
-static esp_err_t esp_module_edge_init(
+
+esp_err_t esp_module_edge_init(
     void (*prov_complete_handler)(uint16_t node_index, const esp_ble_mesh_octet16_t uuid, uint16_t addr, uint8_t element_num, uint16_t net_idx),
+    void (*config_complete_handler)(uint16_t addr),
     void (*recv_message_handler)(esp_ble_mesh_msg_ctx_t *ctx, uint16_t length, uint8_t *msg_ptr),
     void (*recv_response_handler)(esp_ble_mesh_msg_ctx_t *ctx, uint16_t length, uint8_t *msg_ptr),
     void (*timeout_handler)(esp_ble_mesh_msg_ctx_t *ctx, uint32_t opcode),
@@ -653,6 +654,7 @@ static esp_err_t esp_module_edge_init(
 
     // attach application level callback
     prov_complete_handler_cb = prov_complete_handler;
+    config_complete_handler_cb = config_complete_handler;
     recv_message_handler_cb = recv_message_handler;
     recv_response_handler_cb = recv_response_handler;
     timeout_handler_cb = timeout_handler;
