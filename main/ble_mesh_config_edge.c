@@ -24,11 +24,18 @@
 
 #include "../Secret/NetworkConfig.h"
 
-
 #define TAG TAG_EDGE
 #define TAG_W "Debug"
 #define TAG_INFO "Net_Info"
 #define timer_for_ping 6000000 //6 seconds
+
+enum State {
+    DISCONNECTED,
+    CONNECTING,
+    CONNECTED
+};
+
+enum State nodeState = DISCONNECTED;
 
 static uint8_t dev_uuid[ESP_BLE_MESH_OCTET16_LEN] = INIT_UUID_MATCH;
 static struct esp_ble_mesh_key {
@@ -147,11 +154,11 @@ static esp_err_t prov_complete(uint16_t net_idx, uint16_t addr, uint8_t flags, u
     return ESP_OK;
 }
 
-static void periodic_timer_callback(void* arg)
-{
-    int64_t time_since_boot = esp_timer_get_time();
-    ESP_LOGI(TAG, "Periodic timer called, time since boot: %lld us", time_since_boot);
-}
+// static void periodic_timer_callback(void* arg)
+// {
+//     int64_t time_since_boot = esp_timer_get_time();
+//     ESP_LOGI(TAG, "Periodic timer called, time since boot: %lld us", time_since_boot);
+// }
 
 static void ble_mesh_provisioning_cb(esp_ble_mesh_prov_cb_event_t event,
                                              esp_ble_mesh_prov_cb_param_t *param)
@@ -164,6 +171,7 @@ static void ble_mesh_provisioning_cb(esp_ble_mesh_prov_cb_event_t event,
         ESP_LOGI(TAG, "ESP_BLE_MESH_NODE_PROV_ENABLE_COMP_EVT, err_code %d", param->node_prov_enable_comp.err_code);
         break;
     case ESP_BLE_MESH_NODE_PROV_LINK_OPEN_EVT:
+        nodeState = CONNECTING;
         ESP_LOGI(TAG, "ESP_BLE_MESH_NODE_PROV_LINK_OPEN_EVT, bearer %s",
             param->node_prov_link_open.bearer == ESP_BLE_MESH_PROV_ADV ? "PB-ADV" : "PB-GATT");
         break;
@@ -298,7 +306,7 @@ static void ble_mesh_custom_model_cb(esp_ble_mesh_model_cb_event_t event, esp_bl
         break;
     case ESP_BLE_MESH_CLIENT_MODEL_SEND_TIMEOUT_EVT:
         ESP_LOGW(TAG, "Client message 0x%06" PRIx32 " timeout", param->client_send_timeout.opcode);
-        timeout_handler_cb(param->client_send_timeout.ctx, param->client_send_timeout. opcode);
+        timeout_handler_cb(param->client_send_timeout.ctx, param->client_send_timeout.opcode);
         break;
     default:
         break;
@@ -625,6 +633,12 @@ static esp_err_t ble_mesh_init(void)
     return ESP_OK;
 }
 
+static void periodic_state_callback(void* arg)
+{
+    int64_t time_since_boot = esp_timer_get_time();
+    ESP_LOGI(TAG, "Current Node State: %d", nodeState);
+}
+
 static esp_err_t esp_module_edge_init(
     void (*prov_complete_handler)(uint16_t node_index, const esp_ble_mesh_octet16_t uuid, uint16_t addr, uint8_t element_num, uint16_t net_idx),
     void (*recv_message_handler)(esp_ble_mesh_msg_ctx_t *ctx, uint16_t length, uint8_t *msg_ptr),
@@ -674,7 +688,25 @@ static esp_err_t esp_module_edge_init(
     }
 
     ESP_LOGI(TAG, "Done Initializing...");
+
+    const esp_timer_create_args_t periodic_state_args = {
+            .callback = &periodic_state_callback,
+            /* name is optional, but may help identify the timer when debugging */
+            .name = "state"
+    };
+    esp_timer_handle_t periodic_state;
+    ESP_ERROR_CHECK(esp_timer_create(&periodic_state_args, &periodic_state));
     
+    ESP_ERROR_CHECK(esp_timer_start_periodic(periodic_state, 1000000));
+    ESP_LOGI(TAG, "Started timers, time since boot: %lld us", esp_timer_get_time());
+
+    // /* Let the timer run for a little bit more */
+    // usleep(20000000);
+
+    // /* Clean up and finish the example */
+    // ESP_ERROR_CHECK(esp_timer_stop(periodic_state));
+    // ESP_ERROR_CHECK(esp_timer_delete(periodic_state));
+    // ESP_LOGI(TAG, "Stopped and deleted timers");
     return ESP_OK;
 
 }
