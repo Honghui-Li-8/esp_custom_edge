@@ -44,7 +44,7 @@
 struct _led_state {
     uint8_t current;
     uint8_t previous;
-    uint8_t pin;
+    uint8_t pin;uart_init
     char *name;
 };
 

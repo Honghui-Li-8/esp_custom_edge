@@ -7,18 +7,6 @@
 static void prov_complete_handler(uint16_t node_index, const esp_ble_mesh_octet16_t uuid, uint16_t addr, uint8_t element_num, uint16_t net_idx) {
     ESP_LOGI(TAG_M, " ----------- prov_complete handler trigered -----------");
     nodeState = CONNECTED;
-    // const esp_timer_create_args_t periodic_timer_args = {
-    //         .callback = &connectivity_handler*, /// i should test this with printing first before sending mesage but ill change it tmr
-    //         // .callback = &periodic_timer_callback,
-    //         /* name is optional, but may help identify the timer when debugging */
-    //         .name = "periodic"
-    // };
-
-    // esp_timer_handle_t periodic_timer;
-    // ESP_ERROR_CHECK(esp_timer_create(&periodic_timer_args, &periodic_timer));
-
-    // ESP_ERROR_CHECK(esp_timer_start_periodic(periodic_timer, 3000000));
-    // ESP_LOGI(TAG, "Started periodic timers, time since boot: %lld us", esp_timer_get_time());
     loop_message_connection();
 }
 
@@ -115,7 +103,6 @@ static void broadcast_handler(esp_ble_mesh_msg_ctx_t *ctx, uint16_t length, uint
     return;
 }
 
-//maybe change the name, it doesn't fit right
 static void connectivity_handler(esp_ble_mesh_msg_ctx_t *ctx, uint16_t length, uint8_t *msg_ptr) {
     ESP_LOGI(TAG_M, "Checking connectivity\n");
 
@@ -133,20 +120,6 @@ static void connectivity_handler(esp_ble_mesh_msg_ctx_t *ctx, uint16_t length, u
     send_message(ctx->addr, strlen("Are we still connected, from edge") + 1, data_buffer);
     ESP_LOGW(TAG_M, "<- Sended Message [%s]", (char*)data_buffer);
 
-    /*Check if edge is still connected to root, don't need to a respond back.
-        //DISCLAIMER, since this function would repeat every few seconds, if edge is still trying to sent message by the time the timer start, i should probably continue to the next one
-        //the variable timeout_happened should be local, i dont think it needs to be static
-        while timeout_happened < 3
-            send a message to root
-            //i should make it return something to signify that it succeed or not, return 1 if fail, return 
-            if timeout happened
-                incremennt
-            if timeout >= 3
-                print or log saying something about it being disconnected?
-                reset the board using board_button_init function
-        
-        if succeed then don't do anything
-        */
     return;
 }
 
@@ -155,12 +128,7 @@ void app_main(void)
     esp_err_t err;
     board_init();
 
-#if defined(ROOT_MODULE)
-    err = esp_module_root_init(prov_complete_handler, recv_message_handler, recv_response_handler, broadcast_handler, connectivity_handler);
-#else
     err = esp_module_edge_init(prov_complete_handler, recv_message_handler, recv_response_handler, timeout_handler, broadcast_handler, connectivity_handler);
-#endif
-
     if (err != ESP_OK) {
         ESP_LOGE(TAG_ROOT, "Network Module Initialization failed (err %d)", err);
         return;
