@@ -44,14 +44,14 @@ bool getTimeout() {
 static void button_tap_cb(void* arg)
 {
     ESP_LOGW(TAG_W, "button pressed ------------------------- ");
-    // static uint8_t *data_buffer = NULL;
-    // if (data_buffer == NULL) {
-    //     data_buffer = (uint8_t*)malloc(128);
-    //     if (data_buffer == NULL) {
-    //         printf("Memory allocation failed.\n");
-    //         return;
-    //     }
-    // }
+    static uint8_t *data_buffer = NULL;
+    if (data_buffer == NULL) {
+        data_buffer = (uint8_t*)malloc(128);
+        if (data_buffer == NULL) {
+            printf("Memory allocation failed.\n");
+            return;
+        }
+    }
     
     strcpy((char*)data_buffer, "Broadcast sent");
     send_broadcast(strlen("Broadcast sent") + 1, data_buffer);

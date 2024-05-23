@@ -18,13 +18,8 @@
 #define TAG_INFO "Net_Info"
 #define timer_for_ping 6000000 //6 seconds
 
-enum State {
-    DISCONNECTED,
-    CONNECTING,
-    CONNECTED
-};
-
 enum State nodeState = DISCONNECTED;
+esp_timer_handle_t periodic_timer;
 
 static uint8_t dev_uuid[ESP_BLE_MESH_OCTET16_LEN] = INIT_UUID_MATCH;
 static struct esp_ble_mesh_key {
@@ -119,7 +114,7 @@ static esp_ble_mesh_comp_t composition = { // composition of current module
     .element_count = ARRAY_SIZE(elements),
 };
 
-esp_timer_handle_t periodic_timer;
+
 
 // -------------------- application level callback functions ------------------
 static void (*prov_complete_handler_cb)(uint16_t node_index, const esp_ble_mesh_octet16_t uuid, uint16_t addr, uint8_t element_num, uint16_t net_idx) = NULL;
@@ -436,6 +431,19 @@ void loop_message_connection() {
 }
 
 void stop_timer() {
+    ESP_ERROR_CHECK(esp_timer_delete(periodic_timer));
+}
+
+enum State getNodeState() {
+    return nodeState;
+}
+
+void setNodeState(enum State state) {
+    nodeState = state;
+}
+
+void stop_periodic_timer() {
+    ESP_ERROR_CHECK(esp_timer_stop(periodic_timer));
     ESP_ERROR_CHECK(esp_timer_delete(periodic_timer));
 }
 // ========================= our function ==================================

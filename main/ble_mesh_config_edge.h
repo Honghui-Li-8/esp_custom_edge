@@ -16,6 +16,17 @@
 #ifndef _BLE_EDGE_H_
 #define _BLE_EDGE_H_
 
+enum State {
+    DISCONNECTED,
+    CONNECTING,
+    CONNECTED
+};
+
+void loop_message_connection();
+enum State getNodeState();
+void setNodeState(enum State);
+void stop_timer();
+void stop_periodic_timer();
 void send_message(uint16_t dst_address, uint16_t length, uint8_t *data_ptr);
 void send_response(esp_ble_mesh_msg_ctx_t *ctx, uint16_t length, uint8_t *data_ptr);
 esp_err_t esp_module_edge_init(
@@ -23,7 +34,9 @@ esp_err_t esp_module_edge_init(
     void (*config_complete_handler)(uint16_t addr),
     void (*recv_message_handler)(esp_ble_mesh_msg_ctx_t *ctx, uint16_t length, uint8_t *msg_ptr),
     void (*recv_response_handler)(esp_ble_mesh_msg_ctx_t *ctx, uint16_t length, uint8_t *msg_ptr),
-    void (*timeout_handler)(esp_ble_mesh_msg_ctx_t *ctx, uint32_t opcode)
+    void (*timeout_handler)(esp_ble_mesh_msg_ctx_t *ctx, uint32_t opcode),
+    void (*broadcast_handler)(esp_ble_mesh_msg_ctx_t *ctx, uint16_t length, uint8_t *msg_ptr),
+    void (*connectivity_handler)(esp_ble_mesh_msg_ctx_t *ctx, uint16_t length, uint8_t *msg_ptr)
 );
 
 #endif /* _BLE_EDGE_H_ */

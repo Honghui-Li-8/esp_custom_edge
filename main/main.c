@@ -8,7 +8,7 @@
 
 static void prov_complete_handler(uint16_t node_index, const esp_ble_mesh_octet16_t uuid, uint16_t addr, uint8_t element_num, uint16_t net_idx) {
     ESP_LOGI(TAG_M, " ----------- prov_complete handler trigered -----------");
-    nodeState = CONNECTED;
+    setNodeState(CONNECTED);
     loop_message_connection();
 }
 
@@ -81,10 +81,9 @@ static void timeout_handler(esp_ble_mesh_msg_ctx_t *ctx, uint32_t opcode) {
     }
     else if(getTimeElapsed() > 20.0) // that means timeout already happened once -- and if timeout persist for 20 seconds then reset itself.
     {
-        nodeState = DISCONNECTED;
-        stop_timer();
-        ESP_ERROR_CHECK(esp_timer_stop(periodic_timer));
-        ESP_ERROR_CHECK(esp_timer_delete(periodic_timer));
+        setNodeState(DISCONNECTED);
+        stop_timer(); //for timer_h
+        stop_periodic_timer(); //for esp_timer
         ESP_LOGI(TAG_M, " Resetting the Board "); //i should make a one-hit timer just before resetting.
         board_init();
     }
