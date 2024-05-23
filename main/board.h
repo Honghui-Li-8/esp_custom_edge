@@ -38,6 +38,11 @@
 #define UART_START 0xFF
 #define UART_END 0xFE
 
+void startTimer();
+double getTimeElapsed();
+bool getTimeout();
+void setTimeout(bool boolean);
+
 void board_init(void);
 int uart_write_encoded_bytes(uart_port_t uart_num, uint8_t* data, size_t length);
 int uart_decoded_bytes(uint8_t* data, size_t length, uint8_t* decoded_data);
