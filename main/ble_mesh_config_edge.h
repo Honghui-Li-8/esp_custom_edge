@@ -17,9 +17,10 @@
 #define _BLE_EDGE_H_
 
 enum State {
-    DISCONNECTED,
+    NOT_AVAILABLE,
     CONNECTING,
-    CONNECTED
+    IDLE,
+    ACTIVE
 };
 
 void loop_message_connection();

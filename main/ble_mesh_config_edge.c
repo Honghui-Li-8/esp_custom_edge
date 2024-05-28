@@ -18,7 +18,7 @@
 #define TAG_INFO "Net_Info"
 #define timer_for_ping 6000000 //6 seconds
 
-enum State nodeState = DISCONNECTED;
+enum State nodeState = NOT_AVAILABLE;
 esp_timer_handle_t periodic_timer;
 
 static uint8_t dev_uuid[ESP_BLE_MESH_OCTET16_LEN] = INIT_UUID_MATCH;
@@ -266,6 +266,7 @@ static void ble_mesh_custom_model_cb(esp_ble_mesh_model_cb_event_t event, esp_bl
 
     switch (event) {
     case ESP_BLE_MESH_MODEL_OPERATION_EVT:
+        setNodeState(ACTIVE);
         if (param->model_operation.opcode == ECS_193_MODEL_OP_MESSAGE) {
             recv_message_handler_cb(param->model_operation.ctx, param->model_operation.length, param->model_operation.msg);
         } else if (param->model_operation.opcode == ECS_193_MODEL_OP_RESPONSE) {
@@ -280,18 +281,21 @@ static void ble_mesh_custom_model_cb(esp_ble_mesh_model_cb_event_t event, esp_bl
     case ESP_BLE_MESH_MODEL_SEND_COMP_EVT:
         if (param->model_send_comp.err_code) {
             ESP_LOGE(TAG, "Failed to send message 0x%06" PRIx32, param->model_send_comp.opcode);
+            setNodeState(IDLE);
             break;
         }
         // start_time = esp_timer_get_time();
         ESP_LOGI(TAG, "Send opcode [0x%06" PRIx32 "] completed", param->model_send_comp.opcode);
+        setNodeState(IDLE);
         break;
     case ESP_BLE_MESH_CLIENT_MODEL_RECV_PUBLISH_MSG_EVT:
         ESP_LOGI(TAG, "Receive publish message 0x%06" PRIx32, param->client_recv_publish_msg.opcode);
-        
+        setNodeState(IDLE);
         break;
     case ESP_BLE_MESH_CLIENT_MODEL_SEND_TIMEOUT_EVT:
         ESP_LOGW(TAG, "Client message 0x%06" PRIx32 " timeout", param->client_send_timeout.opcode);
         timeout_handler_cb(param->client_send_timeout.ctx, param->client_send_timeout.opcode);
+        setNodeState(IDLE);
         break;
     default:
         break;

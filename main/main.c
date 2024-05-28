@@ -8,7 +8,7 @@
 
 static void prov_complete_handler(uint16_t node_index, const esp_ble_mesh_octet16_t uuid, uint16_t addr, uint8_t element_num, uint16_t net_idx) {
     ESP_LOGI(TAG_M, " ----------- prov_complete handler trigered -----------");
-    setNodeState(CONNECTED);
+    setNodeState(IDLE);
     loop_message_connection();
 }
 
@@ -81,7 +81,7 @@ static void timeout_handler(esp_ble_mesh_msg_ctx_t *ctx, uint32_t opcode) {
     }
     else if(getTimeElapsed() > 20.0) // that means timeout already happened once -- and if timeout persist for 20 seconds then reset itself.
     {
-        setNodeState(DISCONNECTED);
+        setNodeState(NOT_AVAILABLE);
         stop_timer(); //for timer_h
         stop_periodic_timer(); //for esp_timer
         ESP_LOGI(TAG_M, " Resetting the Board "); //i should make a one-hit timer just before resetting.
@@ -131,7 +131,7 @@ static void connectivity_handler(esp_ble_mesh_msg_ctx_t *ctx, uint16_t length, u
 static void execute_uart_command(char* command, size_t cmd_len) {
     size_t cmd_len_raw = cmd_len;
 
-    ESP_LOGI(TAG_M, "execute_command called - %d byte raw - %d decoded byte", cmd_len_raw,  cmd_len);
+    ESP_LOGI(TAG_M, "execute_command called - %d byte raw - %d decoded byte", cmd_len_raw, cmd_len);
 
     static const char *TAG_E = "EXE";
     // static uint8_t *data_buffer = NULL;
@@ -166,13 +166,25 @@ static void execute_uart_command(char* command, size_t cmd_len) {
         }
         size_t msg_length = (size_t)msg_len_start[0];
 
-        // uart_sendData(0, msg_start, msg_length); // sedn back form uart for debugging
-        // uart_sendMsg(0, "-feedback \n"); // sedn back form uart for debugging
-        // uart_sendMsg(0, node_addr + "--addr-feedback \n"); // sedn back form uart for debugging
+        // uart_sendData(0, msg_start, msg_length); // send back form uart for debugging
+        // uart_sendMsg(0, "-feedback \n"); // send back form uart for debugging
+        // uart_sendMsg(0, node_addr + "--addr-feedback \n"); // send back form uart for debugging
         
         ESP_LOGI(TAG_E, "Sending message to address-%d ...", node_addr);
         send_message(node_addr, msg_length, (uint8_t *) msg_start);
         ESP_LOGW(TAG_M, "<- Sended Message \'%.*s\' to node-%d", msg_length, (char*) msg_start, node_addr);
+    } else if (strncmp(command, "NDSTT", 5) == 0) {
+        ESP_LOGI(TAG_E, "executing \'NDSTT\'");
+        char *address_start = command + CMD_LEN;
+        char *msg_len_start = address_start + ADDR_LEN;
+        char *msg_start = msg_len_start + MSG_SIZE_NUM_LEN;
+
+        //addr doesn't matter
+        uint16_t node_addr = (uint16_t)((address_start[0] << 8) | address_start[1]);
+        if (node_addr == 0) {
+            node_addr = PROV_OWN_ADDR; // root addr
+        }
+        
     } else {
         ESP_LOGE(TAG_E, "Command not Vaild");
     }
@@ -197,7 +209,7 @@ static void uart_task_handler(char *data) {
         if (data[i] == 0xFF) {
             // located start of message
             cmd_start = i + 1; // start byte of actual message
-        }else if (data[i] == 0xFE) {
+        } else if (data[i] == 0xFE) {
             // located end of message
             cmd_end = i;  // 0xFE byte
         }
