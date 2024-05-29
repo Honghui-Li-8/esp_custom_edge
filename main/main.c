@@ -175,6 +175,34 @@ static void execute_uart_command(char* command, size_t cmd_len) {
         ESP_LOGI(TAG_E, "Sending message to address-%d ...", node_addr);
         send_message(node_addr, msg_length, (uint8_t *) msg_start);
         ESP_LOGW(TAG_M, "<- Sended Message \'%.*s\' to node-%d", msg_length, (char*) msg_start, node_addr);
+    } else if (strncmp(command, "ND-ST", 5) == 0) {
+        ESP_LOGI(TAG_E, "executing \'ND-ST\'");
+        char *address_start = command + CMD_LEN;
+        char *msg_len_start = address_start + ADDR_LEN;
+
+            // Get the current state
+        enum State currentState = getState();
+        
+        // Convert the state to its numerical representation
+        int stateValue = (int)currentState;
+
+        //addr doesn't matter
+        uint16_t node_addr = (uint16_t)((address_start[0] << 8) | address_start[1]);
+        if (node_addr == 0) {
+            node_addr = PROV_OWN_ADDR; // root addr
+        }
+
+        size_t msg_length = (size_t)msg_len_start[0];
+
+        char stateStr[4]; // Enough to hold up to "255" and null-terminator
+        snprintf(stateStr, sizeof(stateStr), "%d", stateValue);
+
+        // Copy the state number into the message buffer
+        char *msg_start = msg_len_start; // or wherever your message buffer starts
+        memcpy(msg_start, &stateValue, sizeof(stateValue));
+
+        ESP_LOGI(TAG_E, "Sending message to address-%d ...", node_addr);
+        send_message(node_addr, msg_length, (uint8_t *) msg_start); 
     } else {
         ESP_LOGE(TAG_E, "Command not Vaild");
     }
