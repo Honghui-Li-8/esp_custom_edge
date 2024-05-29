@@ -71,22 +71,22 @@ static void timeout_handler(esp_ble_mesh_msg_ctx_t *ctx, uint32_t opcode) {
     ESP_LOGI(TAG_M, " ----------- timeout handler trigered -----------");
 
     // Print the current value of timeout
-    bool currentTimeout = getTimeout();
-    ESP_LOGI(TAG_M, " Current timeout value: %s", currentTimeout ? "true" : "false");
+    // bool currentTimeout = getTimeout();
+    // ESP_LOGI(TAG_M, " Current timeout value: %s", currentTimeout ? "true" : "false");
 
-    if(!currentTimeout) {
-        ESP_LOGI(TAG_M, " Timer is starting to count down ");
-        startTimer();
-        setTimeout(true);
-    }
-    else if(getTimeElapsed() > 20.0) // that means timeout already happened once -- and if timeout persist for 20 seconds then reset itself.
-    {
-        setNodeState(DISCONNECTED);
-        stop_timer(); //for timer_h
-        stop_periodic_timer(); //for esp_timer
-        ESP_LOGI(TAG_M, " Resetting the Board "); //i should make a one-hit timer just before resetting.
-        board_init();
-    }
+    // if(!currentTimeout) {
+    //     ESP_LOGI(TAG_M, " Timer is starting to count down ");
+    //     startTimer();
+    //     setTimeout(true);
+    // }
+    // else if(getTimeElapsed() > 20.0) // that means timeout already happened once -- and if timeout persist for 20 seconds then reset itself.
+    // {
+    //     setNodeState(DISCONNECTED);
+    //     stop_timer(); //for timer_h
+    //     stop_periodic_timer(); //for esp_timer
+    //     ESP_LOGI(TAG_M, " Resetting the Board "); //i should make a one-hit timer just before resetting.
+    //     esp_restart();
+    // }
 }
 
 //Create a new handler to handle broadcasting
@@ -246,8 +246,8 @@ void app_main(void)
     // turn off log - important, bc the server counting on '[E]' as end of message instaed of '\0'
     //              - since the message from uart carries data
     //              - use uart_sendMsg or uart_sendData for message, the esp_log for dev debug
-    // esp_log_level_set(TAG_ALL, ESP_LOG_NONE);
-    // uart_sendMsg(0, "[Ignore_prev][UART] Turning off all Log's from esp_log\n");
+    esp_log_level_set(TAG_ALL, ESP_LOG_NONE);
+    uart_sendMsg(0, "[Ignore_prev][UART] Turning off all Log's from esp_log\n");
 
     esp_err_t err = esp_module_edge_init(prov_complete_handler, config_complete_handler, recv_message_handler, recv_response_handler, timeout_handler, broadcast_handler, connectivity_handler);
     if (err != ESP_OK) {
