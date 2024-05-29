@@ -131,7 +131,8 @@ static void connectivity_handler(esp_ble_mesh_msg_ctx_t *ctx, uint16_t length, u
 static void execute_uart_command(char* command, size_t cmd_len) {
     size_t cmd_len_raw = cmd_len;
 
-    ESP_LOGI(TAG_M, "execute_command called - %d byte raw - %d decoded byte", cmd_len_raw,  cmd_len);
+    ESP_LOGI(TAG_M, "execute_command called - %d byte raw - %d decoded byte", cmd_len_raw, cmd_len);
+    uart_sendMsg(0, "Executing command\n");
 
     static const char *TAG_E = "EXE";
     // static uint8_t *data_buffer = NULL;
@@ -148,6 +149,7 @@ static void execute_uart_command(char* command, size_t cmd_len) {
     // TB Finish, TB Complete
     if (cmd_len < 5) {
         ESP_LOGE(TAG_E, "Command [%s] with %d byte too short", command, cmd_len);
+        uart_sendMsg(0, "Command too short\n");
         return;
     }
     const size_t CMD_LEN = 5;
@@ -199,7 +201,8 @@ static void uart_task_handler(char *data) {
             cmd_start = i + 1; // start byte of actual message
         }else if (data[i] == 0xFE) {
             // located end of message
-            cmd_end = i;  // 0xFE byte
+            cmd_end = i; // 0xFE byte
+            uart_sendMsg(0, "Found End of Message!!\n");
         }
 
         if (cmd_end > cmd_start) {
