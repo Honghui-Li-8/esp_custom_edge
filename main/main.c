@@ -6,6 +6,8 @@
 #define TAG_M "MAIN"
 #define TAG_ALL "*"
 
+uint16_t node_own_addr = 0;
+
 static void prov_complete_handler(uint16_t node_index, const esp_ble_mesh_octet16_t uuid, uint16_t addr, uint8_t element_num, uint16_t net_idx) {
     ESP_LOGI(TAG_M, " ----------- prov_complete handler trigered -----------");
     setNodeState(CONNECTED);
@@ -14,7 +16,8 @@ static void prov_complete_handler(uint16_t node_index, const esp_ble_mesh_octet1
 
 static void config_complete_handler(uint16_t addr) {
     ESP_LOGI(TAG_M,  " ----------- Node-0x%04x config_complete -----------", addr);
-    uart_sendMsg(0,  " ----------- config_complete -----------");
+    node_own_addr = addr;
+    uart_sendMsg(0, " ----------- config_complete -----------");
 }
 
 static void recv_message_handler(esp_ble_mesh_msg_ctx_t *ctx, uint16_t length, uint8_t *msg_ptr) {
@@ -90,23 +93,16 @@ static void timeout_handler(esp_ble_mesh_msg_ctx_t *ctx, uint32_t opcode) {
 }
 
 //Create a new handler to handle broadcasting
-static void broadcast_handler(esp_ble_mesh_msg_ctx_t *ctx, uint16_t length, uint8_t *msg_ptr) {
-    ESP_LOGI(TAG_M, "Broadcast happened\n");
-    
-    static uint8_t *data_buffer = NULL;
-    if (data_buffer == NULL) {
-        data_buffer = (uint8_t*)malloc(128);
-        if (data_buffer == NULL) {
-            printf("Memory allocation failed.\n");
-            return;
-        }
+static void broadcast_handler(esp_ble_mesh_msg_ctx_t *ctx, uint16_t length, uint8_t *msg_ptr)
+{
+    if (ctx->addr == node_own_addr)
+    {
+        return; // is root's own broadcast
     }
 
-    ESP_LOGI(TAG_M, "----------- (send_message) Message back for broadcast -----------");
-    strcpy((char*)data_buffer, "Message back for broadcast");
-    send_message(ctx->addr, strlen("message back for broadcast") + 1, data_buffer);
-    ESP_LOGW(TAG_M, "<- Sended Message [%s]", (char*)data_buffer);
-    return;
+    ESP_LOGI(TAG_M, "Receive Broadcast Message from Node-%hu\n", ctx->addr);
+    // handle it as normal message
+    recv_message_handler(ctx, length, msg_ptr);
 }
 
 static void connectivity_handler(esp_ble_mesh_msg_ctx_t *ctx, uint16_t length, uint8_t *msg_ptr) {
