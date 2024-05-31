@@ -6,5 +6,5 @@
   "idf.openOcdConfigs": [
     "board/esp32h2-builtin.cfg"
   ],
-  "idf.port": "/dev/ttyUSB0"
+  "idf.port": "/dev/ttyUSB1"
 }
