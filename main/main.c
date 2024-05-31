@@ -22,44 +22,30 @@ static void config_complete_handler(uint16_t addr) {
 
 static void recv_message_handler(esp_ble_mesh_msg_ctx_t *ctx, uint16_t length, uint8_t *msg_ptr) {
     // ESP_LOGI(TAG_M, " ----------- recv_message handler trigered -----------");
-    ESP_LOGW(TAG_M, "-> Received Message [%s]", (char*)msg_ptr);
+    uint16_t node_addr = ctx->addr;
+    ESP_LOGW(TAG_M, "-> Received Message \'%s\' from node-%d", (char*)msg_ptr, node_addr);
 
-    static uint8_t *data_buffer = NULL;
-    if (data_buffer == NULL) {
-        data_buffer = (uint8_t*)malloc(128);
-        if (data_buffer == NULL) {
-            printf("Memory allocation failed.\n");
-            return;
-        }
+    // recived a ble-message from edge ndoe
+    // ========== potential special case ==========
+    if (strncmp((char*)msg_ptr, "Special Case", 12) == 0) {
+        // place holder for special case that need to be handled in esp-root module
+        // handle locally
+        char response[5] = "S";
+        uint16_t response_length = strlen(response);
+        send_response(ctx, response_length, (uint8_t*) response);
+        ESP_LOGW(TAG_M, "<- Sended Response \'%s\'", (char*) response);
+        return; // or continue to execute
     }
 
-    if (strncmp((char*) msg_ptr, "hello world", 11) == 0) {
-    
-        // "hello world" matched, is pre-setted special message
-        // send response to received message 
-        strcpy((char*)data_buffer, "hello Root, is your code working");
-        uint16_t response_length = strlen("hello Root, is your code working") + 1;
+    // ========== General case, pass up to APP level ==========
+    // pass node_addr & data to to edge device using uart
+    uart_sendData(node_addr, msg_ptr, length);
 
-        send_response(ctx, response_length, data_buffer);
-        ESP_LOGW(TAG_M, "<- Sended Response [%s]", (char*)data_buffer);
-
-        // send message back (initate communication)
-        ESP_LOGI(TAG_M, "----------- (send_message) initate a conversation back -----------");
-        strcpy((char*)data_buffer, "hello world, this is Edge");
-        send_message(ctx->addr, strlen("hello world, this is Edge") + 1, data_buffer);
-        ESP_LOGW(TAG_M, "<- Sended Message [%s]", (char*)data_buffer);
-        return;
-    }
-    
-    // // send response to comfirm receive on other message
-    strcpy((char*)data_buffer, "Edge Confirmed receive [");
-    strcpy((char*)(data_buffer + 23), (char*) msg_ptr);
-    strcpy((char*)(data_buffer + 23 + length), "]");
-    uint16_t response_length = strlen((char *)data_buffer) + 1;
-
-    send_response(ctx, response_length, data_buffer);
-    ESP_LOGW(TAG_M, "<- Sended Response [%s]", (char*)data_buffer);
-
+    // send response
+    char response[5] = "S";
+    uint16_t response_length = strlen(response);
+    send_response(ctx, response_length, (uint8_t *) response);
+    ESP_LOGW(TAG_M, "<- Sended Response \'%s\'", (char*) response);
 }
 
 static void recv_response_handler(esp_ble_mesh_msg_ctx_t *ctx, uint16_t length, uint8_t *msg_ptr) {
@@ -95,14 +81,17 @@ static void timeout_handler(esp_ble_mesh_msg_ctx_t *ctx, uint32_t opcode) {
 //Create a new handler to handle broadcasting
 static void broadcast_handler(esp_ble_mesh_msg_ctx_t *ctx, uint16_t length, uint8_t *msg_ptr)
 {
-    if (ctx->addr == node_own_addr)
-    {
-        return; // is root's own broadcast
-    }
+    // if (ctx->addr == node_own_addr)
+    // {
+    //     return; // is root's own broadcast
+    // }
+    
+    uint16_t node_addr = ctx->addr;
+    ESP_LOGW(TAG_M, "-> Received Broadcast Message \'%s\' from node-%d", (char *)msg_ptr, node_addr);
 
-    ESP_LOGI(TAG_M, "Receive Broadcast Message from Node-%hu\n", ctx->addr);
-    // handle it as normal message
-    recv_message_handler(ctx, length, msg_ptr);
+    // ========== General case, pass up to APP level ==========
+    // pass node_addr & data to to edge device using uart
+    uart_sendData(node_addr, msg_ptr, length);
 }
 
 static void connectivity_handler(esp_ble_mesh_msg_ctx_t *ctx, uint16_t length, uint8_t *msg_ptr) {
