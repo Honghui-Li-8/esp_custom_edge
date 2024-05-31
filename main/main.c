@@ -91,7 +91,7 @@ static void broadcast_handler(esp_ble_mesh_msg_ctx_t *ctx, uint16_t length, uint
 
     // ========== General case, pass up to APP level ==========
     // pass node_addr & data to to edge device using uart
-    send_message(ctx->addr, length, msg_ptr); // testing log
+    // send_message(ctx->addr, length, msg_ptr); // testing log
     uart_sendData(node_addr, msg_ptr, length);
     ESP_LOGE(TAG_M, "=== Handled Broadcast Message \'%s\' from node-%d ===", (char *)msg_ptr, node_addr);
 }
