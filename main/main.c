@@ -117,7 +117,7 @@ static void connectivity_handler(esp_ble_mesh_msg_ctx_t *ctx, uint16_t length, u
 }
 
 static void execute_uart_command(char* command, size_t cmd_len) {
-    size_t cmd_len_raw = cmd_len;
+    // size_t cmd_len_raw = cmd_len;
 
     // ESP_LOGI(TAG_M, "execute_command called - %d byte raw - %d decoded byte", cmd_len_raw, cmd_len);
     // uart_sendMsg(0, "Executing command\n");
@@ -200,7 +200,8 @@ static void uart_task_handler(char *data) {
             cmd_len = uart_decoded_bytes(command, cmd_len, command); // decoded cmd will be put back to command pointer
             // ESP_LOGE("Decoded Data", "i:%d, cmd_start:%d, cmd_len:%d", i, cmd_start, cmd_len);
 
-            execute_uart_command(data + cmd_start, cmd_len); //TB Finish, don't execute at the moment
+            execute_uart_command(data + cmd_start, cmd_len); // TB Finish, don't execute at the moment
+            cmd_start = cmd_end;
         }
     }
 
@@ -221,9 +222,10 @@ static void rx_task(void *arg)
     // esp_log_level_set(TAG_ALL, ESP_LOG_NONE);
 
     while (1) {
+        memset(data, 0, UART_BUF_SIZE);
         const int rxBytes = uart_read_bytes(UART_NUM, data, UART_BUF_SIZE, 1000 / portTICK_PERIOD_MS);
         if (rxBytes > 0) {
-            // ESP_LOGI(RX_TASK_TAG, "Read %d bytes: '%s'", rxBytes, data);
+            ESP_LOGI(RX_TASK_TAG, "Read %d bytes: '%s'", rxBytes, data);
             // uart_sendMsg(rxBytes, " readed from RX\n");
 
             uart_task_handler((char*) data);
