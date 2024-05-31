@@ -340,7 +340,7 @@ void send_broadcast(uint16_t length, uint8_t *data_ptr)
     ctx.send_ttl = MSG_SEND_TTL;
     
 
-    err = esp_ble_mesh_client_model_send_msg(client_model, &ctx, opcode, length, data_ptr, MSG_TIMEOUT, true, message_role);
+    err = esp_ble_mesh_client_model_send_msg(client_model, &ctx, opcode, length, data_ptr, MSG_TIMEOUT, false, message_role);
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "Failed to send message to node addr 0xFFFF, err_code %d", err);
         return;
@@ -349,27 +349,27 @@ void send_broadcast(uint16_t length, uint8_t *data_ptr)
 
 void send_connectivity(uint16_t dst_address, uint16_t length, uint8_t *data_ptr)
 {
-    esp_ble_mesh_msg_ctx_t ctx = {0};
-    uint32_t opcode = ECS_193_MODEL_OP_CONNECTIVITY;
-    esp_ble_mesh_dev_role_t message_role = MSG_ROLE;
-    esp_err_t err = ESP_OK;
+    // esp_ble_mesh_msg_ctx_t ctx = {0};
+    // uint32_t opcode = ECS_193_MODEL_OP_CONNECTIVITY;
+    // esp_ble_mesh_dev_role_t message_role = MSG_ROLE;
+    // esp_err_t err = ESP_OK;
 
-    // ESP_LOGW(TAG, "net_idx: %" PRIu16, ble_mesh_key.net_idx);
-    // ESP_LOGW(TAG, "app_idx: %" PRIu16, ble_mesh_key.app_idx);
-    // ESP_LOGW(TAG, "dst_address: %" PRIu16, dst_address);
+    // // ESP_LOGW(TAG, "net_idx: %" PRIu16, ble_mesh_key.net_idx);
+    // // ESP_LOGW(TAG, "app_idx: %" PRIu16, ble_mesh_key.app_idx);
+    // // ESP_LOGW(TAG, "dst_address: %" PRIu16, dst_address);
 
-    ctx.net_idx = ble_mesh_key.net_idx;
-    ctx.app_idx = ble_mesh_key.app_idx;
-    ctx.addr = dst_address;
-    ctx.send_ttl = MSG_SEND_TTL;
+    // ctx.net_idx = ble_mesh_key.net_idx;
+    // ctx.app_idx = ble_mesh_key.app_idx;
+    // ctx.addr = dst_address;
+    // ctx.send_ttl = MSG_SEND_TTL;
     
-    ESP_LOGI(TAG, "Trying to ping root\n");
+    // ESP_LOGI(TAG, "Trying to ping root\n");
 
-    err = esp_ble_mesh_client_model_send_msg(client_model, &ctx, opcode, length, data_ptr, MSG_TIMEOUT, true, message_role);
-    if (err != ESP_OK) {
-        ESP_LOGE(TAG, "Failed to send message to node addr 0x%04x, err_code %d", dst_address, err);
-        return;
-    }
+    // err = esp_ble_mesh_client_model_send_msg(client_model, &ctx, opcode, length, data_ptr, MSG_TIMEOUT, true, message_role);
+    // if (err != ESP_OK) {
+    //     ESP_LOGE(TAG, "Failed to send message to node addr 0x%04x, err_code %d", dst_address, err);
+    //     return;
+    // }
     
 }
 
@@ -643,7 +643,7 @@ static esp_err_t ble_mesh_init(void)
 static void periodic_state_callback(void* arg)
 {
     int64_t time_since_boot = esp_timer_get_time();
-    ESP_LOGI(TAG, "Current Node State: %d", nodeState);
+    // ESP_LOGI(TAG, "Current Node State: %d", nodeState);
 }
 
 
