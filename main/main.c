@@ -5,13 +5,17 @@
 
 #define TAG_M "MAIN"
 #define TAG_ALL "*"
+#define OPCODE_LEN 3
+#define NODE_ADDR_LEN 2  // can't change bc is base on esp
+#define NODE_UUID_LEN 16 // can't change bc is base on esp
+#define CMD_LEN 5        // network command length - 5 byte
 
 uint16_t node_own_addr = 0;
 
 static void prov_complete_handler(uint16_t node_index, const esp_ble_mesh_octet16_t uuid, uint16_t addr, uint8_t element_num, uint16_t net_idx) {
     ESP_LOGI(TAG_M, " ----------- prov_complete handler trigered -----------");
     setNodeState(CONNECTED);
-    loop_message_connection();
+    // loop_message_connection();
 }
 
 static void config_complete_handler(uint16_t addr) {
@@ -39,6 +43,7 @@ static void recv_message_handler(esp_ble_mesh_msg_ctx_t *ctx, uint16_t length, u
 
     // ========== General case, pass up to APP level ==========
     // pass node_addr & data to to edge device using uart
+    ESP_LOGE(TAG_M, "-> Received Send Message \'%s\' from node-%d", (char *)msg_ptr, node_addr);
     uart_sendData(node_addr, msg_ptr, length);
 
     // send response
@@ -116,7 +121,7 @@ static void connectivity_handler(esp_ble_mesh_msg_ctx_t *ctx, uint16_t length, u
     return;
 }
 
-static void execute_uart_command(char* command, size_t cmd_len) {
+static void execute_uart_command(char *command, size_t cmd_total_len) {
     // size_t cmd_len_raw = cmd_len;
 
     // ESP_LOGI(TAG_M, "execute_command called - %d byte raw - %d decoded byte", cmd_len_raw, cmd_len);
@@ -135,19 +140,26 @@ static void execute_uart_command(char* command, size_t cmd_len) {
     // ============= process and execute commands from net server (from uart) ==================
     // uart command format
     // TB Finish, TB Complete
-    if (cmd_len < 5) {
+    if (cmd_total_len < 5) {
         // ESP_LOGE(TAG_E, "Command [%s] with %d byte too short", command, cmd_len);
         // uart_sendMsg(0, "Command too short\n");
         return;
     }
-    const size_t CMD_LEN = 5;
-    const size_t ADDR_LEN = 2;
 
     if (strncmp(command, "SEND-", 5) == 0) {
         ESP_LOGI(TAG_E, "executing \'SEND-\'");
         char *address_start = command + CMD_LEN;
-        char *msg_start = address_start + ADDR_LEN;
-        size_t msg_length = cmd_len - CMD_LEN - ADDR_LEN;
+        char *msg_start = address_start + NODE_ADDR_LEN;
+        size_t msg_length = cmd_total_len - CMD_LEN - NODE_ADDR_LEN;
+
+        if (cmd_total_len < CMD_LEN + NODE_ADDR_LEN) {
+            uart_sendMsg(0, "Error: No Dst Address Attached\n");
+            return;
+        }
+        else if (msg_length <= 0) {
+            uart_sendMsg(0, "Error: No Message Attached\n");
+            return;
+        }
 
         uint16_t node_addr_network_order = (uint16_t)((address_start[0] << 8) | address_start[1]);
         uint16_t node_addr = ntohs(node_addr_network_order);
