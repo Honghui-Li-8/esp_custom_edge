@@ -142,19 +142,18 @@ static void execute_uart_command(char* command, size_t cmd_len) {
     }
     const size_t CMD_LEN = 5;
     const size_t ADDR_LEN = 2;
-    const size_t MSG_SIZE_NUM_LEN = 1;
 
     if (strncmp(command, "SEND-", 5) == 0) {
         ESP_LOGI(TAG_E, "executing \'SEND-\'");
         char *address_start = command + CMD_LEN;
-        char *msg_len_start = address_start + ADDR_LEN;
-        char *msg_start = msg_len_start + MSG_SIZE_NUM_LEN;
+        char *msg_start = address_start + ADDR_LEN;
+        size_t msg_length = cmd_len - CMD_LEN - ADDR_LEN;
 
-        uint16_t node_addr = (uint16_t)((address_start[0] << 8) | address_start[1]);
+        uint16_t node_addr_network_order = (uint16_t)((address_start[0] << 8) | address_start[1]);
+        uint16_t node_addr = ntohs(node_addr_network_order);
         if (node_addr == 0) {
             node_addr = PROV_OWN_ADDR; // root addr
         }
-        size_t msg_length = (size_t)msg_len_start[0];
 
         // uart_sendData(0, msg_start, msg_length); // sedn back form uart for debugging
         // uart_sendMsg(0, "-feedback \n"); // sedn back form uart for debugging
