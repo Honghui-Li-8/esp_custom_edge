@@ -162,8 +162,9 @@ static void execute_uart_command(char* command, size_t cmd_len) {
         ESP_LOGI(TAG_E, "Sending message to address-%d ...", node_addr);
         send_message(node_addr, msg_length, (uint8_t *) msg_start);
         ESP_LOGW(TAG_M, "<- Sended Message \'%.*s\' to node-%d", msg_length, (char*) msg_start, node_addr);
-    } else {
-        // ESP_LOGE(TAG_E, "Command not Vaild");
+    } else if (strncmp(command, "RST-E", 5) == 0) {
+        // restart edge module
+        esp_restart();
     }
     
     // ESP_LOGI(TAG_E, "Command [%.*s] executed", cmd_len, command);

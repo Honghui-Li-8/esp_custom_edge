@@ -55,11 +55,23 @@ static void button_tap_cb(void* arg)
 
     // strcpy((char*)data_buffer, "Broadcast sent");
     // send_broadcast(strlen("Broadcast sent") + 1, data_buffer);
-    // TSTITEST0
-    ESP_LOGW(TAG_W, "sending------");
-    char data[20] = "TSTITEST0";
-    uart_sendData(0, (uint8_t*) data, strlen(data));
-    ESP_LOGW(TAG_W, "sended-------");
+    static int control = 0;
+
+    if (control == 0) {
+        // TSTITEST0
+        ESP_LOGW(TAG_W, "sending------");
+        char data[20] = "TSTITEST0";
+        uart_sendData(0, (uint8_t*) data, strlen(data));
+        ESP_LOGW(TAG_W, "sended-------");
+        control = 1;
+    } else {
+        // start test
+        ESP_LOGW(TAG_W, "sending------");
+        char data[20] = "TSTS";
+        uart_sendData(0, (uint8_t*) data, strlen(data));
+        ESP_LOGW(TAG_W, "sended-------");
+        control = 0;
+    }
 }
 
 static void board_button_init(void)
