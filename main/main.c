@@ -27,7 +27,7 @@ static void config_complete_handler(uint16_t addr) {
 static void recv_message_handler(esp_ble_mesh_msg_ctx_t *ctx, uint16_t length, uint8_t *msg_ptr) {
     // ESP_LOGI(TAG_M, " ----------- recv_message handler trigered -----------");
     uint16_t node_addr = ctx->addr;
-    ESP_LOGW(TAG_M, "-> Received Message \'%s\' from node-%d", (char*)msg_ptr, node_addr);
+    ESP_LOGW(TAG_M, "-> Received Message \'%*s\' from node-%d", length, (char *)msg_ptr, node_addr);
 
     // recived a ble-message from edge ndoe
     // ========== potential special case ==========
