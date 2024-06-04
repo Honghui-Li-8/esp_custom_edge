@@ -12,6 +12,8 @@
 #define BLE_ADDR_LEN 2
 #define TAG_L "[Local Edge]"
 
+esp_timer_handle_t data_send_timer;
+
 bool sending_data = false;
 uint64_t data_send_interval = 1000000; // 1 second
 
@@ -133,13 +135,13 @@ void sendTestMultipleData(int16_t *fake_gps, int16_t *fake_ldc, int8_t *fake_idx
 void sendData() {
     static int16_t fake_gps = 333;
     static int16_t fake_ldc = 222;
-    static int8_t fake_gps = 111;
+    static int8_t  fake_idx = 111;
 
-    sendTestMultipleData(&fake_gps, &fake_ldc, &fake_gps);
+    sendTestMultipleData(&fake_gps, &fake_ldc, &fake_idx);
 
     fake_gps += 3;
     fake_ldc += 2;
-    fake_gps += 1;
+    fake_idx += 1;
 }
 
 void sendRobotRequest()
@@ -159,6 +161,19 @@ void sendRobotRequest()
     buf_itr += 5;
 
     ble_send_to_root(buffer, buf_itr - buffer);
+}
+
+void create_data_send_event()
+{
+    const esp_timer_create_args_t periodic_timer_args = {
+        .callback = &sendData,
+        // .callback = &periodic_timer_callback,
+        /* name is optional, but may help identify the timer when debugging */
+        .name = "data_send"};
+
+    ESP_ERROR_CHECK(esp_timer_create(&periodic_timer_args, &data_send_timer));
+
+    ESP_ERROR_CHECK(esp_timer_start_periodic(data_send_timer, data_send_interval));
 }
 
 void local_edge_device_network_message_handler(uint16_t node_addr, uint8_t *data, size_t length) {
@@ -232,21 +247,6 @@ void local_edge_device_network_message_handler(uint16_t node_addr, uint8_t *data
         ble_send_to_root(buffer, buf_itr - buffer);
         
     }
-}
-
-esp_timer_handle_t data_send_timer;
-
-void create_data_send_event()
-{
-    const esp_timer_create_args_t periodic_timer_args = {
-        .callback = &sendData,
-        // .callback = &periodic_timer_callback,
-        /* name is optional, but may help identify the timer when debugging */
-        .name = "data_send"};
-
-    ESP_ERROR_CHECK(esp_timer_create(&periodic_timer_args, &data_send_timer));
-
-    ESP_ERROR_CHECK(esp_timer_start_periodic(data_send_timer, data_send_interval));
 }
 
 // void local_edge_device_task()
