@@ -3,6 +3,7 @@
 #include "iot_button.h"
 #include <string.h>
 #include <time.h>
+#include <arpa/inet.h> // for host byte endianess <--> network byte endianess convert
 #include "../Secret/NetworkConfig.h"
 
 #define MAX_MSG_LEN 256
