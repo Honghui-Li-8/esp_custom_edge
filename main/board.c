@@ -50,6 +50,9 @@ void setLEDState(enum State nodeState) {
     else if (nodeState ==  CONNECTED) {
         board_led_operation(0, 100, 0); // Green LED Color
     }
+    else if (nodeState == WORKING) {
+        board_led_operation(100, 100, 0);
+    }
     else {
         board_led_operation(0, 0, 0); //No Color == No State
     }

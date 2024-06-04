@@ -265,6 +265,7 @@ static void ble_mesh_custom_model_cb(esp_ble_mesh_model_cb_event_t event, esp_bl
         }
         // start_time = esp_timer_get_time();
         ESP_LOGI(TAG, "Send opcode [0x%06" PRIx32 "] completed", param->model_send_comp.opcode);
+        setNodeState(CONNECTED);
         break;
     case ESP_BLE_MESH_CLIENT_MODEL_RECV_PUBLISH_MSG_EVT:
         ESP_LOGI(TAG, "Receive publish message 0x%06" PRIx32, param->client_recv_publish_msg.opcode);
@@ -295,7 +296,7 @@ void send_message(uint16_t dst_address, uint16_t length, uint8_t *data_ptr)
     ctx.addr = dst_address;
     ctx.send_ttl = MSG_SEND_TTL;
     
-
+    setNodeState(WORKING);
     err = esp_ble_mesh_client_model_send_msg(client_model, &ctx, opcode, length, data_ptr, MSG_TIMEOUT, true, message_role);
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "Failed to send message to node addr 0x%04x, err_code %d", dst_address, err);

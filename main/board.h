@@ -42,7 +42,8 @@
 enum State {
     DISCONNECTED,
     CONNECTING,
-    CONNECTED
+    CONNECTED,
+    WORKING,
 };
 
 void startTimer();
