@@ -400,8 +400,7 @@ void loop_message_connection() {
 }
 
 void stop_timer() {
-    ESP_ERROR_CHECK(esp_timer_delete(periodic_timer));
-    ESP_ERROR_CHECK(esp_timer_delete(oneshot_timer));
+    // ESP_ERROR_CHECK(esp_timer_delete(oneshot_timer));
 }
 
 enum State getNodeState() {
@@ -621,7 +620,7 @@ static esp_err_t ble_mesh_init(void)
 void reset_esp32()
 {
     // order edge module to restart since network is about to get refreshed
-    stop_timer();
+    board_led_operation(0,0,0);
     char edge_restart_message[20] = "RST";
     uint16_t msg_length = strlen(edge_restart_message);
     broadcast_message(msg_length, (uint8_t *)edge_restart_message);
@@ -712,13 +711,13 @@ esp_err_t esp_module_edge_init(
     // ESP_LOGI(TAG, "Stopped and deleted timers");
 
     //A timer to active the node state LED
-    const esp_timer_create_args_t oneshot_timer_args = {
-                .callback = &oneshot_timer_callback,
-                /* argument specified here will be passed to timer callback function */
-                .name = "one-shot"
-    };
-    ESP_ERROR_CHECK(esp_timer_create(&oneshot_timer_args, &oneshot_timer));
-    ESP_ERROR_CHECK(esp_timer_start_once(oneshot_timer, 3000000));
+    // const esp_timer_create_args_t oneshot_timer_args = {
+    //             .callback = &oneshot_timer_callback,
+    //             /* argument specified here will be passed to timer callback function */
+    //             .name = "one-shot"
+    // };
+    // ESP_ERROR_CHECK(esp_timer_create(&oneshot_timer_args, &oneshot_timer));
+    // ESP_ERROR_CHECK(esp_timer_start_once(oneshot_timer, 3000000));
 
     return ESP_OK;
 }
