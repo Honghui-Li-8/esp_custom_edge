@@ -20,6 +20,7 @@
 
 enum State nodeState = DISCONNECTED;
 esp_timer_handle_t periodic_timer;
+esp_timer_handle_t oneshot_timer;
 
 static uint8_t dev_uuid[ESP_BLE_MESH_OCTET16_LEN] = INIT_UUID_MATCH;
 static struct esp_ble_mesh_key {
@@ -400,6 +401,7 @@ void loop_message_connection() {
 
 void stop_timer() {
     ESP_ERROR_CHECK(esp_timer_delete(periodic_timer));
+    ESP_ERROR_CHECK(esp_timer_delete(oneshot_timer));
 }
 
 enum State getNodeState() {
@@ -619,6 +621,7 @@ static esp_err_t ble_mesh_init(void)
 void reset_esp32()
 {
     // order edge module to restart since network is about to get refreshed
+    stop_timer();
     char edge_restart_message[20] = "RST";
     uint16_t msg_length = strlen(edge_restart_message);
     broadcast_message(msg_length, (uint8_t *)edge_restart_message);
@@ -714,7 +717,6 @@ esp_err_t esp_module_edge_init(
                 /* argument specified here will be passed to timer callback function */
                 .name = "one-shot"
     };
-    esp_timer_handle_t oneshot_timer;
     ESP_ERROR_CHECK(esp_timer_create(&oneshot_timer_args, &oneshot_timer));
     ESP_ERROR_CHECK(esp_timer_start_once(oneshot_timer, 3000000));
 
