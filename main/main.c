@@ -37,7 +37,7 @@ static void recv_message_handler(esp_ble_mesh_msg_ctx_t *ctx, uint16_t length, u
         char response[5] = "S";
         uint16_t response_length = strlen(response);
         send_response(ctx, response_length, (uint8_t*) response);
-        ESP_LOGW(TAG_M, "<- Sended Response \'%s\'", (char*) response);
+        ESP_LOGW(TAG_M, "<- Sended Response %d bytes \'%*s\'", response_length, response_length, (char *)response);
     }
 
     // ========== General case, pass up to APP level ==========
@@ -49,8 +49,8 @@ static void recv_message_handler(esp_ble_mesh_msg_ctx_t *ctx, uint16_t length, u
     // send response
     char response[5] = "S";
     uint16_t response_length = strlen(response);
-    send_response(ctx, response_length, (uint8_t *) response);
-    ESP_LOGW(TAG_M, "<- Sended Response \'%s\'", (char *)response);
+    send_response(ctx, response_length, (uint8_t *)response);
+    ESP_LOGW(TAG_M, "<- Sended Response %d bytes \'%*s\'", response_length, response_length, (char *)response);
 
     // clear edge reset timeout
     setTimeout(false);
@@ -58,7 +58,7 @@ static void recv_message_handler(esp_ble_mesh_msg_ctx_t *ctx, uint16_t length, u
 
 static void recv_response_handler(esp_ble_mesh_msg_ctx_t *ctx, uint16_t length, uint8_t *msg_ptr) {
     // ESP_LOGI(TAG_M, " ----------- recv_response handler trigered -----------");
-    ESP_LOGW(TAG_M, "-> Received Response [%*s]\n", length, (char *) msg_ptr);
+    ESP_LOGW(TAG_M, "-> Received Response %d bytes [%*s]\n", length , length, (char *)msg_ptr);
 
     // message went through, clear edge reset timeout
     setTimeout(false);
