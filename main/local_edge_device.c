@@ -145,6 +145,7 @@ void sendRobotRequest()
 }
 
 void local_edge_device_network_message_handler(uint16_t node_addr, uint8_t *data, size_t length) {
+    static char current_test[10] = "";
     char *opcode = (char *)data;
     char *payload = (char *)data + OPCODE_LEN;
 
@@ -157,6 +158,7 @@ void local_edge_device_network_message_handler(uint16_t node_addr, uint8_t *data
         {
             ESP_LOGI(TAG_L, "IS 'TST|I' test initialization");
             char *test_name = payload + 1;
+            memcpy(current_test, test_name, 5);
             // Initialization of test ..................................
             // Initialization of test ..................................
             // Initialization of test ..................................
@@ -174,9 +176,12 @@ void local_edge_device_network_message_handler(uint16_t node_addr, uint8_t *data
         else if (strncmp(payload, "S", 1) == 0)
         {
             ESP_LOGI(TAG_L, "IS 'TST|S' test start");
-            // Depends on type of test .....................................
-            char ble_cmd[7] = "RST-E";
-            dispatch_network_command(ble_cmd, 0, NULL, 0);
+                // Depends on type of test .....................................
+            if (strncmp(current_test, "TEST0", 5) == 0) {
+                char ble_cmd[7] = "RST-E";
+                dispatch_network_command(ble_cmd, 0, NULL, 0);
+
+            }
             // Depends on type of test .....................................
         }
     }
@@ -184,6 +189,20 @@ void local_edge_device_network_message_handler(uint16_t node_addr, uint8_t *data
     {
         char ble_cmd[7] = "RST-E";
         dispatch_network_command(ble_cmd, 0, NULL, 0);
+    }
+    else if (strncmp(opcode, "ECH", 3) == 0)
+    {
+        uint8_t buffer[MAX_MSG_LEN];
+        uint8_t *buf_itr = buffer;
+
+        // message type
+        strncpy((char *)buf_itr, "CPY", 3);
+        buf_itr += 3;
+        memcpy(buf_itr, payload, length - 3);
+        buf_itr += length - 3;
+        ESP_LOGI(TAG_L, "send out: '%.*s'", buf_itr - buffer, buffer);
+        ble_send_to_root(buffer, buf_itr - buffer);
+        
     }
 }
 

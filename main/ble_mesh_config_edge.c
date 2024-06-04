@@ -372,14 +372,11 @@ void send_response(esp_ble_mesh_msg_ctx_t *ctx, uint16_t length, uint8_t *data_p
     
 }
 
-
-static esp_err_t config_complete(esp_ble_mesh_msg_ctx_t ctx) {
-
-    u_int16_t node_addr = ctx.addr;
+static esp_err_t config_complete(uint16_t node_addr)
+{
     config_complete_handler_cb(node_addr);
     return ESP_OK;
 }
-
 
 void send_connectivity_wrapper(void *arg) {
     char connectivity_msg[3] = "C";
@@ -444,6 +441,7 @@ static void example_ble_mesh_config_server_cb(esp_ble_mesh_cfg_server_cb_event_t
                 param->value.state_change.mod_app_bind.model_id);
 
             ble_mesh_key.app_idx = param->value.state_change.mod_app_bind.app_idx;
+            config_complete(param->value.state_change.mod_app_bind.element_addr);
             break;
         case ESP_BLE_MESH_MODEL_OP_MODEL_SUB_ADD:
             ESP_LOGI(TAG, "ESP_BLE_MESH_MODEL_OP_MODEL_SUB_ADD");
