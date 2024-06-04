@@ -22,9 +22,6 @@ static void config_complete_handler(uint16_t addr) {
     node_own_addr = addr;
     setNodeState(CONNECTED);
     uart_sendMsg(0, "[E] Module Configured");
-
-    // pinging Root checking connectivity
-    loop_message_connection();
 }
 
 static void recv_message_handler(esp_ble_mesh_msg_ctx_t *ctx, uint16_t length, uint8_t *msg_ptr) {
@@ -80,6 +77,8 @@ static void timeout_handler(esp_ble_mesh_msg_ctx_t *ctx, uint32_t opcode) {
         ESP_LOGI(TAG_M, " Timer is starting to count down ");
         startTimer();
         setTimeout(true);
+        // pinging Root checking connectivity
+        loop_message_connection();
     }
     else if(getTimeElapsed() > 20.0) // that means timeout already happened once -- and if timeout persist for 20 seconds then reset itself.
     {
