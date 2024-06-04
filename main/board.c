@@ -51,14 +51,14 @@ void setLEDState(enum State nodeState) {
         board_led_operation(0, 100, 0); // Green LED Color
     }
     else if (nodeState == WORKING) {
-        board_led_operation(100, 100, 0);
+        board_led_operation(100, 100, 0); // Yellow LED Color
     }
     else {
-        board_led_operation(0, 0, 0); //No Color == No State
+        board_led_operation(0, 0, 0); // No Color == No State
     }
 }
 
-void board_led_operation(uint8_t r, uint8_t b, uint8_t g)
+void board_led_operation(uint8_t r, uint8_t g, uint8_t b)
 {
     rmt_led_set(r,g,b);
 }
@@ -107,6 +107,11 @@ static void button_tap_cb(void* arg)
     //     ESP_LOGW(TAG_W, "sended-------");
     //     control = 1;
     // }
+    ESP_LOGW(TAG_W, "sending------");
+    char data[20] = "TSTS";
+    send_message(PROV_OWN_ADDR, strlen(data), (uint8_t*) data);
+    ESP_LOGW(TAG_W, "sended-------");
+
 }
 
 static void board_button_init(void)

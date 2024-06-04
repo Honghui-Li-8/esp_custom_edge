@@ -150,7 +150,6 @@ static void ble_mesh_provisioning_cb(esp_ble_mesh_prov_cb_event_t event,
         ESP_LOGI(TAG, "ESP_BLE_MESH_NODE_PROV_ENABLE_COMP_EVT, err_code %d", param->node_prov_enable_comp.err_code);
         break;
     case ESP_BLE_MESH_NODE_PROV_LINK_OPEN_EVT:
-        nodeState = CONNECTING;
         ESP_LOGI(TAG, "ESP_BLE_MESH_NODE_PROV_LINK_OPEN_EVT, bearer %s",
             param->node_prov_link_open.bearer == ESP_BLE_MESH_PROV_ADV ? "PB-ADV" : "PB-GATT");
         break;
@@ -373,9 +372,7 @@ void send_response(esp_ble_mesh_msg_ctx_t *ctx, uint16_t length, uint8_t *data_p
 }
 
 
-static esp_err_t config_complete(esp_ble_mesh_msg_ctx_t ctx) {
-
-    u_int16_t node_addr = ctx.addr;
+static esp_err_t config_complete(uint16_t node_addr) {
     config_complete_handler_cb(node_addr);
     return ESP_OK;
 }
@@ -445,6 +442,7 @@ static void example_ble_mesh_config_server_cb(esp_ble_mesh_cfg_server_cb_event_t
                 param->value.state_change.mod_app_bind.model_id);
 
             ble_mesh_key.app_idx = param->value.state_change.mod_app_bind.app_idx;
+            config_complete(param->value.state_change.mod_app_bind.element_addr);
             break;
         case ESP_BLE_MESH_MODEL_OP_MODEL_SUB_ADD:
             ESP_LOGI(TAG, "ESP_BLE_MESH_MODEL_OP_MODEL_SUB_ADD");
