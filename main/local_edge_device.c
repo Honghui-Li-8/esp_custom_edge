@@ -4,12 +4,16 @@
 #include <string.h>
 #include <time.h>
 #include <arpa/inet.h>
+#include "esp_timer.h"
 #include "../Secret/NetworkConfig.h"
 
 #define MAX_MSG_LEN 256
 #define BLE_CMD_LEN 5
 #define BLE_ADDR_LEN 2
 #define TAG_L "[Local Edge]"
+
+bool sending_data = false;
+uint64_t data_send_interval = 1000000; // 1 second
 
 extern void execute_network_command(char *command, size_t cmd_total_len);
 
@@ -126,6 +130,18 @@ void sendTestMultipleData(int16_t *fake_gps, int16_t *fake_ldc, int8_t *fake_idx
     ble_send_to_root(buffer, buf_itr - buffer);
 }
 
+void sendData() {
+    static int16_t fake_gps = 333;
+    static int16_t fake_ldc = 222;
+    static int8_t fake_gps = 111;
+
+    sendTestMultipleData(&fake_gps, &fake_ldc, &fake_gps);
+
+    fake_gps += 3;
+    fake_ldc += 2;
+    fake_gps += 1;
+}
+
 void sendRobotRequest()
 {
     static int count = 0;
@@ -183,7 +199,18 @@ void local_edge_device_network_message_handler(uint16_t node_addr, uint8_t *data
                 dispatch_network_command(ble_cmd, 0, NULL, 0);
 
             }
+            else if (strncmp(current_test, "DATA-", 5) == 0)
+            {
+                create_data_send_event();
+            }
             // Depends on type of test .....................................
+        }
+        else if (strncmp(payload, "F", 1) == 0)
+        {
+            if (strncmp(current_test, "DATA-", 5) == 0)
+            {
+                ESP_ERROR_CHECK(esp_timer_delete(data_send_timer));
+            }
         }
     }
     else if ((strncmp(opcode, "RST", 3) == 0))
@@ -207,6 +234,26 @@ void local_edge_device_network_message_handler(uint16_t node_addr, uint8_t *data
     }
 }
 
+esp_timer_handle_t data_send_timer;
+
+void create_data_send_event()
+{
+    const esp_timer_create_args_t periodic_timer_args = {
+        .callback = &sendData,
+        // .callback = &periodic_timer_callback,
+        /* name is optional, but may help identify the timer when debugging */
+        .name = "data_send"};
+
+    ESP_ERROR_CHECK(esp_timer_create(&periodic_timer_args, &data_send_timer));
+
+    ESP_ERROR_CHECK(esp_timer_start_periodic(data_send_timer, data_send_interval));
+}
+
+// void local_edge_device_task()
+// {
+// }
+
 void local_edge_device_init() {
     // any logic need to be on its thread for local edge device to run
+    // xTaskCreate(local_edge_device_task, "local_edge_device_task", 1024 * 2, NULL, configMAX_PRIORITIES - 2, NULL);
 }
