@@ -21,7 +21,7 @@ static void prov_complete_handler(uint16_t node_index, const esp_ble_mesh_octet1
 static void config_complete_handler(uint16_t addr) {
     ESP_LOGI(TAG_M,  " ----------- Node-0x%04x config_complete -----------", addr);
     node_own_addr = addr;
-    uart_sendMsg(0, " ----------- config_complete -----------");
+    uart_sendMsg(0, "[E] Module Configured");
 }
 
 static void recv_message_handler(esp_ble_mesh_msg_ctx_t *ctx, uint16_t length, uint8_t *msg_ptr) {
@@ -191,7 +191,7 @@ static void execute_uart_command(char *command, size_t cmd_total_len) {
         ESP_LOGW(TAG_M, "recived \'ECHO-\' command");
         strcpy((char*) data_buffer, command);
         strcpy(((char*) data_buffer) + strlen(command), "; [ESP] confirm recived from uart; \n");
-        uart_sendMsg(0, (char*)data_buffer);
+        uart_sendData(0, data_buffer, strlen((char* ) data_buffer) + 1);
     }
 
     // ====== ENot Supported  command ======
@@ -234,7 +234,7 @@ static void uart_task_handler(char *data) {
     if (cmd_start > cmd_end) {
         // one message is only been read half into buffer, edge case. Not consider at the moment
         ESP_LOGE("E", "Buffer might have remaining half message!! cmd_start:%d, cmd_end:%d", cmd_start, cmd_end);
-        uart_sendMsg(0, "[Error] Buffer might have remaining half message!!\n");
+        uart_sendMsg(0, "Error: Buffer might have remaining half message!!\n");
     }
 }
 
@@ -279,6 +279,7 @@ void app_main(void)
     board_init();
     xTaskCreate(rx_task, "uart_rx_task", 1024 * 2, NULL, configMAX_PRIORITIES - 1, NULL);
 
-    uart_sendMsg(0, "[E]online\n");
+    char message[15] = "[E]online\n";
+    uart_sendData(0, (uint8_t *)message, strlen(message));
     // uart_sendMsg(0, "[UART] ----------- app_main done -----------\n");
 }
