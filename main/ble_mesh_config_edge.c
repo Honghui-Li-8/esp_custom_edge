@@ -6,19 +6,20 @@
 
 #include "board.h"
 #include "ble_mesh_config_edge.h"
+#include "../Secret/NetworkConfig.h"
+
 #include "esp_ble_mesh_local_data_operation_api.h"
 #if CONFIG_BLE_MESH_RPR_SRV
 #include "esp_ble_mesh_rpr_model_api.h"
 #endif
 
-#include "../Secret/NetworkConfig.h"
 
 #define TAG TAG_EDGE
 #define TAG_W "Debug"
 #define TAG_INFO "Net_Info"
-#define timer_for_ping 6000000 //6 seconds
+#define timer_for_ping 6000000 //6 seconds for pinging root to check conectivity
 
-enum State nodeState = NOT_AVAILABLE;
+enum State nodeState = DISCONNECTED;
 esp_timer_handle_t periodic_timer;
 
 static uint8_t dev_uuid[ESP_BLE_MESH_OCTET16_LEN] = INIT_UUID_MATCH;
@@ -85,14 +86,14 @@ static esp_ble_mesh_client_t ecs_193_client = {
 };
 
 static esp_ble_mesh_model_op_t client_op[] = { // operation client will "RECEIVED"
-    ESP_BLE_MESH_MODEL_OP(ECS_193_MODEL_OP_RESPONSE, 2),
+    ESP_BLE_MESH_MODEL_OP(ECS_193_MODEL_OP_RESPONSE, 1),
     ESP_BLE_MESH_MODEL_OP_END,
 };
 
 static esp_ble_mesh_model_op_t server_op[] = { // operation server will "RECEIVED"
     ESP_BLE_MESH_MODEL_OP(ECS_193_MODEL_OP_MESSAGE, 2),
     ESP_BLE_MESH_MODEL_OP(ECS_193_MODEL_OP_BROADCAST, 2),
-    ESP_BLE_MESH_MODEL_OP(ECS_193_MODEL_OP_CONNECTIVITY, 2),
+    ESP_BLE_MESH_MODEL_OP(ECS_193_MODEL_OP_CONNECTIVITY, 1),
     ESP_BLE_MESH_MODEL_OP_END,
 };
 
@@ -139,12 +140,6 @@ static esp_err_t prov_complete(uint16_t net_idx, uint16_t addr, uint8_t flags, u
     return ESP_OK;
 }
 
-// static void periodic_timer_callback(void* arg)
-// {
-//     int64_t time_since_boot = esp_timer_get_time();
-//     ESP_LOGI(TAG, "Periodic timer called, time since boot: %lld us", time_since_boot);
-// }
-
 static void ble_mesh_provisioning_cb(esp_ble_mesh_prov_cb_event_t event,
                                              esp_ble_mesh_prov_cb_param_t *param)
 {
@@ -179,19 +174,6 @@ static void ble_mesh_provisioning_cb(esp_ble_mesh_prov_cb_event_t event,
         break;
     }
 }
-
-// static void print_error(int error_code) {
-//     static uint8_t *data_buffer = NULL;
-//     if (data_buffer == NULL) {
-//         data_buffer = (uint8_t*)malloc(128);
-//         if (data_buffer == NULL) {
-//             printf("Memory allocation failed.\n");
-//             return;
-//         }
-//     }
-//     const char *error_message = esp_err_to_name_r(error_code, (char*) data_buffer, 128);
-//     ESP_LOGE(TAG, "Error Message [%s]\n", error_message);
-// }
 
 static esp_err_t custom_model_bind_appkey(uint16_t app_idx) {
     const esp_ble_mesh_comp_t *comp = NULL;
@@ -266,7 +248,6 @@ static void ble_mesh_custom_model_cb(esp_ble_mesh_model_cb_event_t event, esp_bl
 
     switch (event) {
     case ESP_BLE_MESH_MODEL_OPERATION_EVT:
-        setNodeState(ACTIVE);
         if (param->model_operation.opcode == ECS_193_MODEL_OP_MESSAGE) {
             recv_message_handler_cb(param->model_operation.ctx, param->model_operation.length, param->model_operation.msg);
         } else if (param->model_operation.opcode == ECS_193_MODEL_OP_RESPONSE) {
@@ -281,21 +262,18 @@ static void ble_mesh_custom_model_cb(esp_ble_mesh_model_cb_event_t event, esp_bl
     case ESP_BLE_MESH_MODEL_SEND_COMP_EVT:
         if (param->model_send_comp.err_code) {
             ESP_LOGE(TAG, "Failed to send message 0x%06" PRIx32, param->model_send_comp.opcode);
-            setNodeState(IDLE);
             break;
         }
         // start_time = esp_timer_get_time();
         ESP_LOGI(TAG, "Send opcode [0x%06" PRIx32 "] completed", param->model_send_comp.opcode);
-        setNodeState(IDLE);
         break;
     case ESP_BLE_MESH_CLIENT_MODEL_RECV_PUBLISH_MSG_EVT:
         ESP_LOGI(TAG, "Receive publish message 0x%06" PRIx32, param->client_recv_publish_msg.opcode);
-        setNodeState(IDLE);
+        
         break;
     case ESP_BLE_MESH_CLIENT_MODEL_SEND_TIMEOUT_EVT:
         ESP_LOGW(TAG, "Client message 0x%06" PRIx32 " timeout", param->client_send_timeout.opcode);
         timeout_handler_cb(param->client_send_timeout.ctx, param->client_send_timeout.opcode);
-        setNodeState(IDLE);
         break;
     default:
         break;
@@ -327,7 +305,7 @@ void send_message(uint16_t dst_address, uint16_t length, uint8_t *data_ptr)
     
 }
 
-void send_broadcast(uint16_t length, uint8_t *data_ptr)
+void broadcast_message(uint16_t length, uint8_t *data_ptr)
 {
     esp_ble_mesh_msg_ctx_t ctx = {0};
     uint32_t opcode = ECS_193_MODEL_OP_BROADCAST;
@@ -344,7 +322,7 @@ void send_broadcast(uint16_t length, uint8_t *data_ptr)
     ctx.send_ttl = MSG_SEND_TTL;
     
 
-    err = esp_ble_mesh_client_model_send_msg(client_model, &ctx, opcode, length, data_ptr, MSG_TIMEOUT, true, message_role);
+    err = esp_ble_mesh_client_model_send_msg(client_model, &ctx, opcode, length, data_ptr, MSG_TIMEOUT, false, message_role);
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "Failed to send message to node addr 0xFFFF, err_code %d", err);
         return;
@@ -374,7 +352,6 @@ void send_connectivity(uint16_t dst_address, uint16_t length, uint8_t *data_ptr)
         ESP_LOGE(TAG, "Failed to send message to node addr 0x%04x, err_code %d", dst_address, err);
         return;
     }
-    
 }
 
 void send_response(esp_ble_mesh_msg_ctx_t *ctx, uint16_t length, uint8_t *data_ptr)
@@ -405,18 +382,9 @@ static esp_err_t config_complete(esp_ble_mesh_msg_ctx_t ctx) {
 
 
 void send_connectivity_wrapper(void *arg) {
-    static uint8_t *data_buffer = NULL;
-    if (data_buffer == NULL) {
-        data_buffer = (uint8_t*)malloc(128);
-        if (data_buffer == NULL) {
-            printf("Memory allocation failed.\n");
-            return;
-        }
-    }
-    
-    strcpy((char*)data_buffer, "Connectivitiy sent");
+    char connectivity_msg[3] = "C";
 
-    send_connectivity(PROV_OWN_ADDR, strlen("Connectivity sent") + 1, data_buffer);
+    send_connectivity(PROV_OWN_ADDR, strlen(connectivity_msg), (uint8_t *) connectivity_msg);
 }
 
 void loop_message_connection() {
@@ -644,12 +612,26 @@ static esp_err_t ble_mesh_init(void)
     return ESP_OK;
 }
 
-static void periodic_state_callback(void* arg)
-{
-    int64_t time_since_boot = esp_timer_get_time();
-    ESP_LOGI(TAG, "Current Node State: %d", nodeState);
-}
+// static void periodic_state_callback(void* arg)
+// {
+//     int64_t time_since_boot = esp_timer_get_time();
+//     // ESP_LOGI(TAG, "Current Node State: %d", nodeState);
+// }
 
+void reset_esp32()
+{
+    // order edge module to restart since network is about to get refreshed
+    char edge_restart_message[20] = "RST";
+    uint16_t msg_length = strlen(edge_restart_message);
+    broadcast_message(msg_length, (uint8_t *)edge_restart_message);
+
+#if CONFIG_BLE_MESH_SETTINGS
+    // erase the persistent memory
+    esp_err_t error = ESP_OK;
+    error = esp_ble_mesh_provisioner_direct_erase_settings();
+#endif /* CONFIG_BLE_MESH_SETTINGS */
+    uart_sendMsg(0, "Persistent Memory Reseted, Should Restart Module Later\n");
+}
 
 esp_err_t esp_module_edge_init(
     void (*prov_complete_handler)(uint16_t node_index, const esp_ble_mesh_octet16_t uuid, uint16_t addr, uint8_t element_num, uint16_t net_idx),
@@ -703,16 +685,16 @@ esp_err_t esp_module_edge_init(
 
     ESP_LOGI(TAG, "Done Initializing...");
 
-    const esp_timer_create_args_t periodic_state_args = {
-            .callback = &periodic_state_callback,
-            /* name is optional, but may help identify the timer when debugging */
-            .name = "state"
-    };
-    esp_timer_handle_t periodic_state;
-    ESP_ERROR_CHECK(esp_timer_create(&periodic_state_args, &periodic_state));
+    // const esp_timer_create_args_t periodic_state_args = {
+    //         .callback = &periodic_state_callback,
+    //         /* name is optional, but may help identify the timer when debugging */
+    //         .name = "state"
+    // };
+    // esp_timer_handle_t periodic_state;
+    // ESP_ERROR_CHECK(esp_timer_create(&periodic_state_args, &periodic_state));
     
-    ESP_ERROR_CHECK(esp_timer_start_periodic(periodic_state, 1000000));
-    ESP_LOGI(TAG, "Started timers, time since boot: %lld us", esp_timer_get_time());
+    // ESP_ERROR_CHECK(esp_timer_start_periodic(periodic_state, 1000000));
+    // ESP_LOGI(TAG, "Started timers, time since boot: %lld us", esp_timer_get_time());
 
     // /* Let the timer run for a little bit more */
     // usleep(20000000);
@@ -722,5 +704,4 @@ esp_err_t esp_module_edge_init(
     // ESP_ERROR_CHECK(esp_timer_delete(periodic_state));
     // ESP_LOGI(TAG, "Stopped and deleted timers");
     return ESP_OK;
-
 }

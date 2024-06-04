@@ -5,66 +5,69 @@
 
 #define TAG_M "MAIN"
 #define TAG_ALL "*"
+#define OPCODE_LEN 3
+#define NODE_ADDR_LEN 2  // can't change bc is base on esp
+#define NODE_UUID_LEN 16 // can't change bc is base on esp
+#define CMD_LEN 5        // network command length - 5 byte
+#define CMD_SEND_MSG "SEND-"
+#define CMD_BROADCAST_MSG "BCAST"
+#define CMD_RESET_EDGE "RST-E"
+
+uint16_t node_own_addr = 0;
 
 static void prov_complete_handler(uint16_t node_index, const esp_ble_mesh_octet16_t uuid, uint16_t addr, uint8_t element_num, uint16_t net_idx) {
     ESP_LOGI(TAG_M, " ----------- prov_complete handler trigered -----------");
-    setNodeState(IDLE);
-    loop_message_connection();
+    setNodeState(CONNECTING);
 }
 
 static void config_complete_handler(uint16_t addr) {
     ESP_LOGI(TAG_M,  " ----------- Node-0x%04x config_complete -----------", addr);
-    uart_sendMsg(0,  " ----------- config_complete -----------");
+    node_own_addr = addr;
+    setNodeState(CONNECTED);
+    uart_sendMsg(0, "[E] Module Configured");
+
+    // pinging Root checking connectivity
+    loop_message_connection();
 }
 
 static void recv_message_handler(esp_ble_mesh_msg_ctx_t *ctx, uint16_t length, uint8_t *msg_ptr) {
     // ESP_LOGI(TAG_M, " ----------- recv_message handler trigered -----------");
-    ESP_LOGW(TAG_M, "-> Received Message [%s]", (char*)msg_ptr);
+    uint16_t node_addr = ctx->addr;
+    ESP_LOGW(TAG_M, "-> Received Message \'%s\' from node-%d", (char*)msg_ptr, node_addr);
 
-    static uint8_t *data_buffer = NULL;
-    if (data_buffer == NULL) {
-        data_buffer = (uint8_t*)malloc(128);
-        if (data_buffer == NULL) {
-            printf("Memory allocation failed.\n");
-            return;
-        }
+    // recived a ble-message from edge ndoe
+    // ========== potential special case ==========
+    if (strncmp((char*)msg_ptr, "Special Case", 12) == 0) {
+        // place holder for special case that need to be handled in esp-root module
+        // handle locally
+        char response[5] = "S";
+        uint16_t response_length = strlen(response);
+        send_response(ctx, response_length, (uint8_t*) response);
+        ESP_LOGW(TAG_M, "<- Sended Response \'%s\'", (char*) response);
     }
 
-    if (strncmp((char*) msg_ptr, "hello world", 11) == 0) {
-    
-        // "hello world" matched, is pre-setted special message
-        // send response to received message 
-        strcpy((char*)data_buffer, "hello Root, is your code working");
-        uint16_t response_length = strlen("hello Root, is your code working") + 1;
-
-        send_response(ctx, response_length, data_buffer);
-        ESP_LOGW(TAG_M, "<- Sended Response [%s]", (char*)data_buffer);
-
-        // send message back (initate communication)
-        ESP_LOGI(TAG_M, "----------- (send_message) initate a conversation back -----------");
-        strcpy((char*)data_buffer, "hello world, this is Edge");
-        send_message(ctx->addr, strlen("hello world, this is Edge") + 1, data_buffer);
-        ESP_LOGW(TAG_M, "<- Sended Message [%s]", (char*)data_buffer);
-        return;
+    // ========== General case, pass up to APP level ==========
+    // pass node_addr & data to to edge device using uart
+    else {
+        uart_sendData(node_addr, msg_ptr, length);
     }
-    
-    // // send response to comfirm receive on other message
-    strcpy((char*)data_buffer, "Edge Confirmed receive [");
-    strcpy((char*)(data_buffer + 23), (char*) msg_ptr);
-    strcpy((char*)(data_buffer + 23 + length), "]");
-    uint16_t response_length = strlen((char *)data_buffer) + 1;
 
-    send_response(ctx, response_length, data_buffer);
-    ESP_LOGW(TAG_M, "<- Sended Response [%s]", (char*)data_buffer);
+    // send response
+    char response[5] = "S";
+    uint16_t response_length = strlen(response);
+    send_response(ctx, response_length, (uint8_t *) response);
+    ESP_LOGW(TAG_M, "<- Sended Response \'%s\'", (char *)response);
 
+    // clear edge reset timeout
+    setTimeout(false);
 }
 
 static void recv_response_handler(esp_ble_mesh_msg_ctx_t *ctx, uint16_t length, uint8_t *msg_ptr) {
     // ESP_LOGI(TAG_M, " ----------- recv_response handler trigered -----------");
     ESP_LOGW(TAG_M, "-> Received Response [%s]\n", (char*)msg_ptr);
 
-    // //message went through, reset the timer
-    // setTimeout(false);
+    // message went through, clear edge reset timeout
+    setTimeout(false);
 }
 
 static void timeout_handler(esp_ble_mesh_msg_ctx_t *ctx, uint32_t opcode) {
@@ -81,37 +84,44 @@ static void timeout_handler(esp_ble_mesh_msg_ctx_t *ctx, uint32_t opcode) {
     }
     else if(getTimeElapsed() > 20.0) // that means timeout already happened once -- and if timeout persist for 20 seconds then reset itself.
     {
-        setNodeState(NOT_AVAILABLE);
         stop_timer(); //for timer_h
         stop_periodic_timer(); //for esp_timer
-        ESP_LOGI(TAG_M, " Resetting the Board "); //i should make a one-hit timer just before resetting.
-        board_init();
+        ESP_LOGI(TAG_M, "Edge not able to connect to root, Resetting the Edge Module "); //i should make a one-hit timer just before resetting.
+        esp_restart();
     }
 }
 
 //Create a new handler to handle broadcasting
-static void broadcast_handler(esp_ble_mesh_msg_ctx_t *ctx, uint16_t length, uint8_t *msg_ptr) {
-    ESP_LOGI(TAG_M, "Broadcast happened\n");
-    
-    static uint8_t *data_buffer = NULL;
-    if (data_buffer == NULL) {
-        data_buffer = (uint8_t*)malloc(128);
-        if (data_buffer == NULL) {
-            printf("Memory allocation failed.\n");
-            return;
-        }
+static void broadcast_handler(esp_ble_mesh_msg_ctx_t *ctx, uint16_t length, uint8_t *msg_ptr)
+{
+    if (ctx->addr == node_own_addr)
+    {
+        return; // is edge's own broadcast
     }
 
-    ESP_LOGI(TAG_M, "----------- (send_message) Message back for broadcast -----------");
-    strcpy((char*)data_buffer, "Message back for broadcast");
-    send_message(ctx->addr, strlen("message back for broadcast") + 1, data_buffer);
-    ESP_LOGW(TAG_M, "<- Sended Message [%s]", (char*)data_buffer);
-    return;
+    uint16_t node_addr = ctx->addr;
+    ESP_LOGE(TAG_M, "-> Received Broadcast Message \'%s\' from node-%d", (char *)msg_ptr, node_addr);
+
+    // ========== General case, pass up to APP level ==========
+    // pass node_addr & data to to edge device using uart
+    uart_sendData(node_addr, msg_ptr, length);
 }
 
 static void connectivity_handler(esp_ble_mesh_msg_ctx_t *ctx, uint16_t length, uint8_t *msg_ptr) {
-    ESP_LOGI(TAG_M, "Checking connectivity\n");
+    ESP_LOGI(TAG_M, "----- Connectivity Handler Triggered -----\n");
 
+    char response[3] = "S";
+    uint16_t response_length = strlen(response);
+    send_response(ctx, response_length, (uint8_t *)response);
+}
+
+static void execute_uart_command(char *command, size_t cmd_total_len) {
+    // size_t cmd_len_raw = cmd_len;
+
+    // ESP_LOGI(TAG_M, "execute_command called - %d byte raw - %d decoded byte", cmd_len_raw, cmd_len);
+    // uart_sendMsg(0, "Executing command\n");
+
+    static const char *TAG_E = "EXE";
     static uint8_t *data_buffer = NULL;
     if (data_buffer == NULL) {
         data_buffer = (uint8_t*)malloc(128);
@@ -120,83 +130,75 @@ static void connectivity_handler(esp_ble_mesh_msg_ctx_t *ctx, uint16_t length, u
             return;
         }
     }
-    
-    ESP_LOGI(TAG_M, "----------- (send_message) iniate message for checking purposes -----------");
-    strcpy((char*)data_buffer, "Are we still connected, from edge");
-    send_message(ctx->addr, strlen("Are we still connected, from edge") + 1, data_buffer);
-    ESP_LOGW(TAG_M, "<- Sended Message [%s]", (char*)data_buffer);
-
-    return;
-}
-static void execute_uart_command(char* command, size_t cmd_len) {
-    size_t cmd_len_raw = cmd_len;
-
-    ESP_LOGI(TAG_M, "execute_command called - %d byte raw - %d decoded byte", cmd_len_raw, cmd_len);
-
-    static const char *TAG_E = "EXE";
-    // static uint8_t *data_buffer = NULL;
-    // if (data_buffer == NULL) {
-    //     data_buffer = (uint8_t*)malloc(128);
-    //     if (data_buffer == NULL) {
-    //         printf("Memory allocation failed.\n");
-    //         return;
-    //     }
-    // }
 
     // ============= process and execute commands from net server (from uart) ==================
     // uart command format
     // TB Finish, TB Complete
-    if (cmd_len < 5) {
-        ESP_LOGE(TAG_E, "Command [%s] with %d byte too short", command, cmd_len);
+    if (cmd_total_len < 5) {
+        ESP_LOGE(TAG_E, "Command [%s] with %d byte too short", command, cmd_total_len);
         return;
     }
-    const size_t CMD_LEN = 5;
-    const size_t ADDR_LEN = 2;
-    const size_t MSG_SIZE_NUM_LEN = 1;
 
-    if (strncmp(command, "SEND-", 5) == 0) {
+    // ====== core commands ======
+    if (strncmp(command, CMD_SEND_MSG, CMD_LEN) == 0) {
         ESP_LOGI(TAG_E, "executing \'SEND-\'");
         char *address_start = command + CMD_LEN;
-        char *msg_len_start = address_start + ADDR_LEN;
-        char *msg_start = msg_len_start + MSG_SIZE_NUM_LEN;
+        char *msg_start = address_start + NODE_ADDR_LEN;
+        size_t msg_length = cmd_total_len - CMD_LEN - NODE_ADDR_LEN;
 
-        uint16_t node_addr = (uint16_t)((address_start[0] << 8) | address_start[1]);
+        if (cmd_total_len < CMD_LEN + NODE_ADDR_LEN) {
+            uart_sendMsg(0, "Error: No Dst Address Attached\n");
+            return;
+        }
+        else if (msg_length <= 0) {
+            uart_sendMsg(0, "Error: No Message Attached\n");
+            return;
+        }
+
+        uint16_t node_addr_network_order = (uint16_t)((address_start[0] << 8) | address_start[1]);
+        uint16_t node_addr = ntohs(node_addr_network_order);
         if (node_addr == 0) {
             node_addr = PROV_OWN_ADDR; // root addr
         }
-        size_t msg_length = (size_t)msg_len_start[0];
-
-        // uart_sendData(0, msg_start, msg_length); // send back form uart for debugging
-        // uart_sendMsg(0, "-feedback \n"); // send back form uart for debugging
-        // uart_sendMsg(0, node_addr + "--addr-feedback \n"); // send back form uart for debugging
         
         ESP_LOGI(TAG_E, "Sending message to address-%d ...", node_addr);
         send_message(node_addr, msg_length, (uint8_t *) msg_start);
         ESP_LOGW(TAG_M, "<- Sended Message \'%.*s\' to node-%d", msg_length, (char*) msg_start, node_addr);
-    } else if (strncmp(command, "NDSTT", 5) == 0) {
-        ESP_LOGI(TAG_E, "executing \'NDSTT\'");
-        char *address_start = command + CMD_LEN;
-        char *msg_len_start = address_start + ADDR_LEN;
-        char *msg_start = msg_len_start + MSG_SIZE_NUM_LEN;
+    } 
+    else if (strncmp(command, CMD_BROADCAST_MSG, CMD_LEN) == 0) {
+        ESP_LOGI(TAG_E, "executing \'BCAST\'");
+        char *msg_start = command + CMD_LEN + NODE_ADDR_LEN;
+        size_t msg_length = cmd_total_len - CMD_LEN - NODE_ADDR_LEN;
 
-        //addr doesn't matter
-        uint16_t node_addr = (uint16_t)((address_start[0] << 8) | address_start[1]);
-        if (node_addr == 0) {
-            node_addr = PROV_OWN_ADDR; // root addr
-        }
-        
-    } else {
+        broadcast_message(msg_length, (uint8_t *)msg_start);
+    } 
+    else if (strncmp(command, CMD_RESET_EDGE, CMD_LEN) == 0) {
+        // restart edge module
+        esp_restart();
+    }
+    // else if (strncmp(command, "CLEAN", 5) == 0)
+    // {
+    //     ESP_LOGI(TAG_E, "executing \'CLEAN\'");
+    //     uart_sendMsg(0, " - Reseting Module Persistant Memory\n");
+    //     reset_esp32();
+    // }
+
+    // ====== other dev/debug use command ====== 
+    // else if (strncmp(command, "ECHO-", 5) == 0) {
+    //     // echo test
+    //     ESP_LOGW(TAG_M, "recived \'ECHO-\' command");
+    //     strcpy((char*) data_buffer, command);
+    //     strcpy(((char*) data_buffer) + strlen(command), "; [ESP] confirm recived from uart; \n");
+    //     uart_sendData(0, data_buffer, strlen((char* ) data_buffer) + 1);
+    // }
+
+    // ====== Not Supported  command ======
+    else {
         ESP_LOGE(TAG_E, "Command not Vaild");
     }
-    
-    ESP_LOGI(TAG_E, "Command [%.*s] executed", cmd_len, command);
-}
 
-// static void print_bytes(char* data, size_t length) {
-//     for(int i = 0; i< length; ++i) {
-        
-//     }
-// }
+    ESP_LOGI(TAG_E, "Command [%.*s] executed", cmd_total_len, command);
+}
 
 static void uart_task_handler(char *data) {
     ESP_LOGW(TAG_M, "uart_task_handler called ------------------");
@@ -211,7 +213,8 @@ static void uart_task_handler(char *data) {
             cmd_start = i + 1; // start byte of actual message
         } else if (data[i] == 0xFE) {
             // located end of message
-            cmd_end = i;  // 0xFE byte
+            cmd_end = i; // 0xFE byte
+            // uart_sendMsg(0, "Found End of Message!!\n");
         }
 
         if (cmd_end > cmd_start) {
@@ -221,14 +224,15 @@ static void uart_task_handler(char *data) {
             cmd_len = uart_decoded_bytes(command, cmd_len, command); // decoded cmd will be put back to command pointer
             ESP_LOGE("Decoded Data", "i:%d, cmd_start:%d, cmd_len:%d", i, cmd_start, cmd_len);
 
-            execute_uart_command(data + cmd_start, cmd_len); //TB Finish, don't execute at the moment
+            execute_uart_command(data + cmd_start, cmd_len); // TB Finish, don't execute at the moment
+            cmd_start = cmd_end;
         }
     }
 
     if (cmd_start > cmd_end) {
         // one message is only been read half into buffer, edge case. Not consider at the moment
         ESP_LOGE("E", "Buffer might have remaining half message!! cmd_start:%d, cmd_end:%d", cmd_start, cmd_end);
-        uart_sendMsg(0, "[Error] Buffer might have remaining half message!!\n");
+        uart_sendMsg(0, "Error: Buffer might have remaining half message!!\n");
     }
 }
 
@@ -236,15 +240,16 @@ static void uart_task_handler(char *data) {
 // when read entire bufffer, no message got read as half, or metho to recover it? 
 static void rx_task(void *arg)
 {
+    // esp_log_level_set(TAG_ALL, ESP_LOG_NONE);
+
     static const char *RX_TASK_TAG = "RX";
     uint8_t* data = (uint8_t*) malloc(UART_BUF_SIZE + 1);
     ESP_LOGW(RX_TASK_TAG, "rx_task called ------------------");
-    esp_log_level_set(TAG_ALL, ESP_LOG_NONE);
-
     while (1) {
+        memset(data, 0, UART_BUF_SIZE);
         const int rxBytes = uart_read_bytes(UART_NUM, data, UART_BUF_SIZE, 1000 / portTICK_PERIOD_MS);
         if (rxBytes > 0) {
-            // ESP_LOGI(RX_TASK_TAG, "Read %d bytes: '%s'", rxBytes, data);
+            ESP_LOGI(RX_TASK_TAG, "Read %d bytes: '%s'", rxBytes, data);
             // uart_sendMsg(rxBytes, " readed from RX\n");
 
             uart_task_handler((char*) data);
@@ -255,19 +260,24 @@ static void rx_task(void *arg)
 
 void app_main(void)
 {
-    // turn off log - important, bc the server counting on '[E]' as end of message instaed of '\0'
-    //              - since the message from uart carries data
+    // turn off log - Important, bc the server counting on uart escape byte 0xff and 0xfe
+    //              - So need to enforce all uart signal
     //              - use uart_sendMsg or uart_sendData for message, the esp_log for dev debug
+    // Edge Module is fine since is using uart pin, seperate from usb-uart logging channle
     // esp_log_level_set(TAG_ALL, ESP_LOG_NONE);
-    // uart_sendMsg(0, "[Ignore_prev][UART] Turning off all Log's from esp_log\n");
+    // uart_sendMsg(0, "[UART] Turning off all Log's from esp_log\n");
 
     esp_err_t err = esp_module_edge_init(prov_complete_handler, config_complete_handler, recv_message_handler, recv_response_handler, timeout_handler, broadcast_handler, connectivity_handler);
     if (err != ESP_OK) {
         ESP_LOGE(TAG_M, "Network Module Initialization failed (err %d)", err);
+        uart_sendMsg(0, "Error: Network Module Initialization failed\n");
         return;
     }
+    
     board_init();
     xTaskCreate(rx_task, "uart_rx_task", 1024 * 2, NULL, configMAX_PRIORITIES - 1, NULL);
 
-    ESP_LOGI(TAG_M, " ----------- app_main done -----------");
+    char message[15] = "[E]online\n";
+    uart_sendData(0, (uint8_t *)message, strlen(message));
+    // uart_sendMsg(0, "[UART] ----------- app_main done -----------\n");
 }
