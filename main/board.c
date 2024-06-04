@@ -40,6 +40,31 @@ bool getTimeout() {
     return timeout;
 }
 
+void setLEDState(enum State nodeState) {
+    if(nodeState == DISCONNECTED) {
+        board_led_operation(100, 0, 0); // Red LED Color
+    }
+    else if (nodeState == CONNECTING) {
+        board_led_operation(0, 0, 100); // Blue LED Color
+    }
+    else if (nodeState ==  CONNECTED) {
+        board_led_operation(0, 100, 0); // Green LED Color
+    }
+    else {
+        board_led_operation(0, 0, 0); //No Color == No State
+    }
+}
+
+void board_led_operation(uint8_t r, uint8_t b, uint8_t g)
+{
+    rmt_led_set(r,g,b);
+}
+
+static void board_led_init(void)
+{
+    rmt_encoder_init();
+}
+
 static void button_tap_cb(void* arg)
 {
     ESP_LOGW(TAG_W, "button pressed ------------------------- ");
@@ -54,30 +79,31 @@ static void button_tap_cb(void* arg)
 
     // strcpy((char*)data_buffer, "Broadcast sent");
     // send_broadcast(strlen("Broadcast sent") + 1, data_buffer);
-    static int control = 1;
-    // if (control == 0) {
+
+    // static int control = 1;
+    // // if (control == 0) {
+    // //     // TSTITEST0
+    // //     ESP_LOGW(TAG_W, "send RST------");
+    // //     char data[20] = "RST";
+    // //     uart_sendData(0, (uint8_t*) data, strlen(data));
+    // //     ESP_LOGW(TAG_W, "sended RST-------");
+    // //     control = 1;
+    // // }else
+    // if (control == 1) {
     //     // TSTITEST0
-    //     ESP_LOGW(TAG_W, "send RST------");
-    //     char data[20] = "RST";
+    //     ESP_LOGW(TAG_W, "sending------");
+    //     char data[20] = "TSTITEST0";
     //     uart_sendData(0, (uint8_t*) data, strlen(data));
-    //     ESP_LOGW(TAG_W, "sended RST-------");
+    //     ESP_LOGW(TAG_W, "sended-------");
+    //     control = 2;
+    // } else {
+    //     // start test
+    //     ESP_LOGW(TAG_W, "sending------");
+    //     char data[20] = "TSTS";
+    //     uart_sendData(0, (uint8_t*) data, strlen(data));
+    //     ESP_LOGW(TAG_W, "sended-------");
     //     control = 1;
-    // }else
-    if (control == 1) {
-        // TSTITEST0
-        ESP_LOGW(TAG_W, "sending------");
-        char data[20] = "TSTITEST0";
-        uart_sendData(0, (uint8_t*) data, strlen(data));
-        ESP_LOGW(TAG_W, "sended-------");
-        control = 2;
-    } else {
-        // start test
-        ESP_LOGW(TAG_W, "sending------");
-        char data[20] = "TSTS";
-        uart_sendData(0, (uint8_t*) data, strlen(data));
-        ESP_LOGW(TAG_W, "sended-------");
-        control = 1;
-    }
+    // }
 }
 
 static void board_button_init(void)
@@ -200,5 +226,6 @@ int uart_sendMsg(uint16_t node_addr, char* msg)
 void board_init(void)
 {
     uart_init();
+    board_led_init();
     board_button_init();
 }

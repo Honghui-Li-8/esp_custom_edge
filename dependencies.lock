@@ -22,6 +22,12 @@ dependencies:
     source:
       type: idf
     version: 5.2.0
-manifest_hash: 8630b155b03a99b74e71beba8d0f3c493d8907e07691c7ca0fe9a3dbb53a70a9
+  light_driver:
+    component_hash: null
+    source:
+      path: C:\Users\axeln\esp\v5.2\esp-idf\examples\bluetooth\esp_ble_mesh\common_components\light_driver
+      type: local
+    version: '*'
+manifest_hash: 4e6f9d70d206f96dfe819eb2177c3b33027a0500af4944c3cbb699e15df2cd2e
 target: esp32h2
 version: 1.0.0

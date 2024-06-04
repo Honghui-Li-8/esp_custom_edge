@@ -17,12 +17,6 @@
 #ifndef _BLE_EDGE_H_
 #define _BLE_EDGE_H_
 
-enum State {
-    DISCONNECTED,
-    CONNECTING,
-    CONNECTED
-};
-
 void loop_message_connection();
 enum State getNodeState();
 void setNodeState(enum State);

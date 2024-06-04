@@ -13,7 +13,6 @@
 #include "esp_ble_mesh_rpr_model_api.h"
 #endif
 
-
 #define TAG TAG_EDGE
 #define TAG_W "Debug"
 #define TAG_INFO "Net_Info"
@@ -412,6 +411,7 @@ enum State getNodeState() {
 
 void setNodeState(enum State state) {
     nodeState = state;
+    setLEDState(state);
 }
 
 void stop_periodic_timer() {
@@ -633,6 +633,13 @@ void reset_esp32()
     uart_sendMsg(0, "Persistent Memory Reseted, Should Restart Module Later\n");
 }
 
+static void oneshot_timer_callback(void* arg)
+{
+    int64_t time_since_boot = esp_timer_get_time();
+    ESP_LOGI(TAG, "One-shot timer called, time since boot: %lld us", time_since_boot);
+    setLEDState(getNodeState());
+}
+
 esp_err_t esp_module_edge_init(
     void (*prov_complete_handler)(uint16_t node_index, const esp_ble_mesh_octet16_t uuid, uint16_t addr, uint8_t element_num, uint16_t net_idx),
     void (*config_complete_handler)(uint16_t addr),
@@ -684,7 +691,6 @@ esp_err_t esp_module_edge_init(
     }
 
     ESP_LOGI(TAG, "Done Initializing...");
-
     // const esp_timer_create_args_t periodic_state_args = {
     //         .callback = &periodic_state_callback,
     //         /* name is optional, but may help identify the timer when debugging */
@@ -703,5 +709,16 @@ esp_err_t esp_module_edge_init(
     // ESP_ERROR_CHECK(esp_timer_stop(periodic_state));
     // ESP_ERROR_CHECK(esp_timer_delete(periodic_state));
     // ESP_LOGI(TAG, "Stopped and deleted timers");
+
+    //A timer to active the node state LED
+    const esp_timer_create_args_t oneshot_timer_args = {
+                .callback = &oneshot_timer_callback,
+                /* argument specified here will be passed to timer callback function */
+                .name = "one-shot"
+    };
+    esp_timer_handle_t oneshot_timer;
+    ESP_ERROR_CHECK(esp_timer_create(&oneshot_timer_args, &oneshot_timer));
+    ESP_ERROR_CHECK(esp_timer_start_once(oneshot_timer, 3000000));
+
     return ESP_OK;
 }
