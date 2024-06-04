@@ -59,7 +59,7 @@ static void recv_message_handler(esp_ble_mesh_msg_ctx_t *ctx, uint16_t length, u
 
 static void recv_response_handler(esp_ble_mesh_msg_ctx_t *ctx, uint16_t length, uint8_t *msg_ptr) {
     // ESP_LOGI(TAG_M, " ----------- recv_response handler trigered -----------");
-    ESP_LOGW(TAG_M, "-> Received Response [%s]\n", (char*)msg_ptr);
+    ESP_LOGW(TAG_M, "-> Received Response [%*s]\n", length, (char *) msg_ptr);
 
     // message went through, clear edge reset timeout
     setTimeout(false);
@@ -100,7 +100,7 @@ static void broadcast_handler(esp_ble_mesh_msg_ctx_t *ctx, uint16_t length, uint
     }
 
     uint16_t node_addr = ctx->addr;
-    ESP_LOGE(TAG_M, "-> Received Broadcast Message \'%s\' from node-%d", (char *)msg_ptr, node_addr);
+    ESP_LOGE(TAG_M, "-> Received Broadcast Message \'%*s\' from node-%d", length, (char *) msg_ptr, node_addr);
 
     // ========== General case, pass up to APP level ==========
     // pass node_addr & data to to edge device using uart
