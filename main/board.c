@@ -14,6 +14,10 @@
 #include <time.h>
 #include "board.h"
 
+#ifdef LOCAL_EDGE_DEVICE_ENABLED
+#include "local_edge_device.c"
+#endif
+
 #define TAG_B "BOARD"
 #define TAG_W "Debug"
 
@@ -165,6 +169,12 @@ int uart_decoded_bytes(uint8_t* data, size_t length, uint8_t* decoded_data) {
 // do we need to regulate the message length?
 int uart_sendData(uint16_t node_addr, uint8_t* data, size_t length)
 {
+#ifdef LOCAL_EDGE_DEVICE_ENABLED
+    // enabled local_edge_device, pass message to local_edge_device
+    local_edge_device_network_message_handler(node_addr, data, length);
+    return length;
+#else
+    // not enabled local_edge_device, pass message to uart with uart encoding
     uint8_t uart_start = UART_START;
     uint8_t uart_end = UART_END;
     int txBytes = 0;
@@ -177,6 +187,7 @@ int uart_sendData(uint16_t node_addr, uint8_t* data, size_t length)
 
     ESP_LOGI("[UART]", "Wrote %d bytes Data on uart-tx", txBytes);
     return txBytes;
+#endif
 }
 
 // TB Finish, need to encode the send data for escape bytes
@@ -201,4 +212,9 @@ void board_init(void)
 {
     uart_init();
     board_button_init();
+
+#ifdef LOCAL_EDGE_DEVICE_ENABLED
+    // enabled local_edge_device, initialize the local device
+    local_edge_device_init();
+#endif
 }

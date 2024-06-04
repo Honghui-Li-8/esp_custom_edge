@@ -5,10 +5,7 @@
 
 #define TAG_M "MAIN"
 #define TAG_ALL "*"
-#define OPCODE_LEN 3
-#define NODE_ADDR_LEN 2  // can't change bc is base on esp
-#define NODE_UUID_LEN 16 // can't change bc is base on esp
-#define CMD_LEN 5        // network command length - 5 byte
+// network command length - 5 byte
 #define CMD_SEND_MSG "SEND-"
 #define CMD_BROADCAST_MSG "BCAST"
 #define CMD_RESET_EDGE "RST-E"
@@ -198,6 +195,13 @@ static void execute_uart_command(char *command, size_t cmd_total_len) {
     }
 
     ESP_LOGI(TAG_E, "Command [%.*s] executed", cmd_total_len, command);
+}
+
+void execute_network_command(char *command, size_t cmd_total_len) {
+#ifdef LOCAL_EDGE_DEVICE_ENABLED
+    // meant to be only used by local_edge_device
+    execute_uart_command(command, cmd_total_len);
+#endif
 }
 
 static void uart_task_handler(char *data) {

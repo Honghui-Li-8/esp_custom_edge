@@ -1,10 +1,14 @@
 #ifndef NETCONFIG_H
 #define NETCONFIG_H
 
-// #define TAG_ROOT "ROOT"
+#define OPCODE_LEN 3
+#define NODE_ADDR_LEN 2  // can't change bc is base on esp
+#define NODE_UUID_LEN 16 // can't change bc is base on esp
+#define CMD_LEN 5        // network command length - 5 byte
+
 #define TAG_EDGE "EDGE"
-// #define END_OF_MSG "[E]" // 3 bytes, change this need to change other stuff
-// #define ROOT_MODULE // control which module it is
+#define LOCAL_EDGE_DEVICE_ENABLED // handle the edge device job in esp-edge module itself
+                                  // Don't pass to UART anymore
 
 #define ECS_193_CID         0x02FF  // regulate the module connecting
 #define APP_KEY_IDX         0x0000
