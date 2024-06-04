@@ -15,6 +15,7 @@ extern void execute_network_command(char *command, size_t cmd_total_len);
 void dispatch_network_command(char* ble_cmd, uint16_t node_addr, uint8_t *data_buffer, size_t data_length)
 {
     uint8_t command_msg[MAX_MSG_LEN + BLE_CMD_LEN + BLE_ADDR_LEN];
+    memset(command_msg, 0, MAX_MSG_LEN + BLE_CMD_LEN + BLE_ADDR_LEN);
     uint8_t *msg_itr = command_msg;
     uint16_t node_addr_network_order = htons(node_addr);
 
@@ -30,16 +31,18 @@ void dispatch_network_command(char* ble_cmd, uint16_t node_addr, uint8_t *data_b
     msg_itr += BLE_ADDR_LEN;
 
     if (data_buffer != NULL) {
-        memcpy(msg_itr, &data_buffer, data_length);
+        memcpy(msg_itr, data_buffer, data_length);
         msg_itr += data_length;
     }
 
+    ESP_LOGI(TAG_L, "data_buffer: '%.*s'", data_length, data_buffer);
     execute_network_command((char *) command_msg, msg_itr - command_msg);
 }
 
 void ble_send_to_root(uint8_t *data_buffer, size_t data_length)
 {
     char ble_cmd[7] = "SEND-";
+    ESP_LOGI(TAG_L, "data_buffer: '%.*s'", data_length, data_buffer);
     dispatch_network_command(ble_cmd, 0, data_buffer, data_length);
 }
 
@@ -163,8 +166,9 @@ void local_edge_device_network_message_handler(uint16_t node_addr, uint8_t *data
             // message type
             strncpy((char *)buf_itr, "CPY", 3);
             buf_itr += 3;
-            memcpy(buf_itr, payload, length - 5);
-            buf_itr += length - 5;
+            memcpy(buf_itr, payload, length - 3);
+            buf_itr += length - 3;
+            ESP_LOGI(TAG_L, "send out: '%.*s'", buf_itr - buffer, buffer);
             ble_send_to_root(buffer, buf_itr - buffer);
         }
         else if (strncmp(payload, "S", 1) == 0)
