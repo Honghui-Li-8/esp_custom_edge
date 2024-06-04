@@ -12,6 +12,7 @@
 
 #include "driver/uart.h"
 #include "driver/gpio.h"
+#include "led_strip_encoder.h"
 #include <arpa/inet.h>
 #include "../Secret/NetworkConfig.h"
 
@@ -38,42 +39,51 @@
 #define UART_START 0xFF
 #define UART_END 0xFE
 
+enum State {
+    DISCONNECTED,
+    CONNECTING,
+    CONNECTED,
+    WORKING,
+};
+
 void startTimer();
 double getTimeElapsed();
 bool getTimeout();
 void setTimeout(bool boolean);
+void setLEDState(enum State state);
 
 void board_init(void);
+void board_led_operation(uint8_t r, uint8_t g, uint8_t b);
 int uart_write_encoded_bytes(uart_port_t uart_num, uint8_t* data, size_t length);
 int uart_decoded_bytes(uint8_t* data, size_t length, uint8_t* decoded_data);
 int uart_sendData(uint16_t node_addr, uint8_t* data, size_t length);
 int uart_sendMsg(uint16_t node_addr, char* msg);
 
-// #if defined(CONFIG_BLE_MESH_ESP_WROOM_32)
-// #define LED_R GPIO_NUM_25
-// #define LED_G GPIO_NUM_26
-// #define LED_B GPIO_NUM_27
-// #elif defined(CONFIG_BLE_MESH_ESP_WROVER)
-// #define LED_R GPIO_NUM_0
-// #define LED_G GPIO_NUM_2
-// #define LED_B GPIO_NUM_4
-// #elif defined(CONFIG_BLE_MESH_ESP32C3_DEV)
-// #define LED_R GPIO_NUM_8
-// #define LED_G GPIO_NUM_8
-// #define LED_B GPIO_NUM_8
-// #elif defined(CONFIG_BLE_MESH_ESP32S3_DEV)
-// #define LED_R GPIO_NUM_47
-// #define LED_G GPIO_NUM_47
-// #define LED_B GPIO_NUM_47
-// #elif defined(CONFIG_BLE_MESH_ESP32C6_DEV)
-// #define LED_R GPIO_NUM_8
-// #define LED_G GPIO_NUM_8
-// #define LED_B GPIO_NUM_8
-// #elif defined(CONFIG_BLE_MESH_ESP32H2_DEV)
-// #define LED_R GPIO_NUM_8
-// #define LED_G GPIO_NUM_8
-// #define LED_B GPIO_NUM_8
-// #endif
+#if defined(CONFIG_BLE_MESH_ESP_WROOM_32)
+#define LED_R GPIO_NUM_25
+#define LED_G GPIO_NUM_26
+#define LED_B GPIO_NUM_27
+#elif defined(CONFIG_BLE_MESH_ESP_WROVER)
+#define LED_R GPIO_NUM_0
+#define LED_G GPIO_NUM_2
+#define LED_B GPIO_NUM_4
+#elif defined(CONFIG_BLE_MESH_ESP32C3_DEV)
+#define LED_R GPIO_NUM_8
+#define LED_G GPIO_NUM_8
+#define LED_B GPIO_NUM_8
+#elif defined(CONFIG_BLE_MESH_ESP32S3_DEV)
+#define LED_R GPIO_NUM_47
+#define LED_G GPIO_NUM_47
+#define LED_B GPIO_NUM_47
+#elif defined(CONFIG_BLE_MESH_ESP32C6_DEV)
+#define LED_R GPIO_NUM_8
+#define LED_G GPIO_NUM_8
+#define LED_B GPIO_NUM_8
+#elif defined(CONFIG_BLE_MESH_ESP32H2_DEV)
+#define LED_R GPIO_NUM_8
+#define LED_G GPIO_NUM_8
+#define LED_B GPIO_NUM_8
+#endif
 
 // #define LED_ON  1
 // #define LED_OFF 0

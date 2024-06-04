@@ -2,26 +2,32 @@ dependencies:
   button:
     component_hash: null
     source:
-      path: /home/honghui/esp/v5.2/esp-idf/examples/bluetooth/esp_ble_mesh/common_components/button
+      path: C:\Users\axeln\esp\v5.2\esp-idf\examples\bluetooth\esp_ble_mesh\common_components\button
       type: local
     version: '*'
   example_init:
     component_hash: null
     source:
-      path: /home/honghui/esp/v5.2/esp-idf/examples/bluetooth/esp_ble_mesh/common_components/example_init
+      path: C:\Users\axeln\esp\v5.2\esp-idf\examples\bluetooth\esp_ble_mesh\common_components\example_init
       type: local
     version: '*'
   example_nvs:
     component_hash: null
     source:
-      path: /home/honghui/esp/v5.2/esp-idf/examples/bluetooth/esp_ble_mesh/common_components/example_nvs
+      path: C:\Users\axeln\esp\v5.2\esp-idf\examples\bluetooth\esp_ble_mesh\common_components\example_nvs
       type: local
     version: '*'
   idf:
     component_hash: null
     source:
       type: idf
-    version: 5.2.1
-manifest_hash: 6730e2315102736e258937625f87892139f2b5f7f98f6277c865baad19ea7c28
+    version: 5.2.0
+  light_driver:
+    component_hash: null
+    source:
+      path: C:\Users\axeln\esp\v5.2\esp-idf\examples\bluetooth\esp_ble_mesh\common_components\light_driver
+      type: local
+    version: '*'
+manifest_hash: 4e6f9d70d206f96dfe819eb2177c3b33027a0500af4944c3cbb699e15df2cd2e
 target: esp32h2
 version: 1.0.0

@@ -13,7 +13,6 @@
 #include "esp_ble_mesh_rpr_model_api.h"
 #endif
 
-
 #define TAG TAG_EDGE
 #define TAG_W "Debug"
 #define TAG_INFO "Net_Info"
@@ -151,7 +150,6 @@ static void ble_mesh_provisioning_cb(esp_ble_mesh_prov_cb_event_t event,
         ESP_LOGI(TAG, "ESP_BLE_MESH_NODE_PROV_ENABLE_COMP_EVT, err_code %d", param->node_prov_enable_comp.err_code);
         break;
     case ESP_BLE_MESH_NODE_PROV_LINK_OPEN_EVT:
-        nodeState = CONNECTING;
         ESP_LOGI(TAG, "ESP_BLE_MESH_NODE_PROV_LINK_OPEN_EVT, bearer %s",
             param->node_prov_link_open.bearer == ESP_BLE_MESH_PROV_ADV ? "PB-ADV" : "PB-GATT");
         break;
@@ -266,6 +264,7 @@ static void ble_mesh_custom_model_cb(esp_ble_mesh_model_cb_event_t event, esp_bl
         }
         // start_time = esp_timer_get_time();
         ESP_LOGI(TAG, "Send opcode [0x%06" PRIx32 "] completed", param->model_send_comp.opcode);
+        setNodeState(CONNECTED);
         break;
     case ESP_BLE_MESH_CLIENT_MODEL_RECV_PUBLISH_MSG_EVT:
         ESP_LOGI(TAG, "Receive publish message 0x%06" PRIx32, param->client_recv_publish_msg.opcode);
@@ -296,7 +295,7 @@ void send_message(uint16_t dst_address, uint16_t length, uint8_t *data_ptr)
     ctx.addr = dst_address;
     ctx.send_ttl = MSG_SEND_TTL;
     
-
+    setNodeState(WORKING);
     err = esp_ble_mesh_client_model_send_msg(client_model, &ctx, opcode, length, data_ptr, MSG_TIMEOUT, true, message_role);
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "Failed to send message to node addr 0x%04x, err_code %d", dst_address, err);
@@ -372,8 +371,8 @@ void send_response(esp_ble_mesh_msg_ctx_t *ctx, uint16_t length, uint8_t *data_p
     
 }
 
-static esp_err_t config_complete(uint16_t node_addr)
-{
+
+static esp_err_t config_complete(uint16_t node_addr) {
     config_complete_handler_cb(node_addr);
     return ESP_OK;
 }
@@ -409,6 +408,7 @@ enum State getNodeState() {
 
 void setNodeState(enum State state) {
     nodeState = state;
+    setLEDState(state);
 }
 
 void stop_periodic_timer() {
@@ -631,6 +631,13 @@ void reset_esp32()
     uart_sendMsg(0, "Persistent Memory Reseted, Should Restart Module Later\n");
 }
 
+static void oneshot_timer_callback(void* arg)
+{
+    int64_t time_since_boot = esp_timer_get_time();
+    ESP_LOGI(TAG, "One-shot timer called, time since boot: %lld us", time_since_boot);
+    setLEDState(getNodeState());
+}
+
 esp_err_t esp_module_edge_init(
     void (*prov_complete_handler)(uint16_t node_index, const esp_ble_mesh_octet16_t uuid, uint16_t addr, uint8_t element_num, uint16_t net_idx),
     void (*config_complete_handler)(uint16_t addr),
@@ -682,7 +689,6 @@ esp_err_t esp_module_edge_init(
     }
 
     ESP_LOGI(TAG, "Done Initializing...");
-
     // const esp_timer_create_args_t periodic_state_args = {
     //         .callback = &periodic_state_callback,
     //         /* name is optional, but may help identify the timer when debugging */
@@ -701,5 +707,16 @@ esp_err_t esp_module_edge_init(
     // ESP_ERROR_CHECK(esp_timer_stop(periodic_state));
     // ESP_ERROR_CHECK(esp_timer_delete(periodic_state));
     // ESP_LOGI(TAG, "Stopped and deleted timers");
+
+    //A timer to active the node state LED
+    const esp_timer_create_args_t oneshot_timer_args = {
+                .callback = &oneshot_timer_callback,
+                /* argument specified here will be passed to timer callback function */
+                .name = "one-shot"
+    };
+    esp_timer_handle_t oneshot_timer;
+    ESP_ERROR_CHECK(esp_timer_create(&oneshot_timer_args, &oneshot_timer));
+    ESP_ERROR_CHECK(esp_timer_start_once(oneshot_timer, 3000000));
+
     return ESP_OK;
 }
