@@ -211,7 +211,7 @@ static void uart_task_handler(char *data) {
         if (data[i] == 0xFF) {
             // located start of message
             cmd_start = i + 1; // start byte of actual message
-        }else if (data[i] == 0xFE) {
+        } else if (data[i] == 0xFE) {
             // located end of message
             cmd_end = i; // 0xFE byte
             // uart_sendMsg(0, "Found End of Message!!\n");
