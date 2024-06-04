@@ -18,7 +18,6 @@
 #define TAG_W "Debug"
 
 extern void send_message(uint16_t dst_address, uint16_t length, uint8_t *data_ptr);
-extern void send_broadcast(uint16_t length, uint8_t *data_ptr);
 extern void printNetworkInfo();
 
 clock_t start_time;
@@ -44,17 +43,41 @@ bool getTimeout() {
 static void button_tap_cb(void* arg)
 {
     ESP_LOGW(TAG_W, "button pressed ------------------------- ");
-    static uint8_t *data_buffer = NULL;
-    if (data_buffer == NULL) {
-        data_buffer = (uint8_t*)malloc(128);
-        if (data_buffer == NULL) {
-            printf("Memory allocation failed.\n");
-            return;
-        }
+    // static uint8_t *data_buffer = NULL;
+    // if (data_buffer == NULL) {
+    //     data_buffer = (uint8_t*)malloc(128);
+    //     if (data_buffer == NULL) {
+    //         printf("Memory allocation failed.\n");
+    //         return;
+    //     }
+    // }
+
+    // strcpy((char*)data_buffer, "Broadcast sent");
+    // send_broadcast(strlen("Broadcast sent") + 1, data_buffer);
+    static int control = 1;
+    // if (control == 0) {
+    //     // TSTITEST0
+    //     ESP_LOGW(TAG_W, "send RST------");
+    //     char data[20] = "RST";
+    //     uart_sendData(0, (uint8_t*) data, strlen(data));
+    //     ESP_LOGW(TAG_W, "sended RST-------");
+    //     control = 1;
+    // }else
+    if (control == 1) {
+        // TSTITEST0
+        ESP_LOGW(TAG_W, "sending------");
+        char data[20] = "TSTITEST0";
+        uart_sendData(0, (uint8_t*) data, strlen(data));
+        ESP_LOGW(TAG_W, "sended-------");
+        control = 2;
+    } else {
+        // start test
+        ESP_LOGW(TAG_W, "sending------");
+        char data[20] = "TSTS";
+        uart_sendData(0, (uint8_t*) data, strlen(data));
+        ESP_LOGW(TAG_W, "sended-------");
+        control = 1;
     }
-    
-    strcpy((char*)data_buffer, "Broadcast sent");
-    send_broadcast(strlen("Broadcast sent") + 1, data_buffer);
 }
 
 static void board_button_init(void)
