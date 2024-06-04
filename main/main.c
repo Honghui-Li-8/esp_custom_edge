@@ -54,6 +54,7 @@ static void recv_message_handler(esp_ble_mesh_msg_ctx_t *ctx, uint16_t length, u
 
     // clear edge reset timeout
     setTimeout(false);
+    stop_timer();
 }
 
 static void recv_response_handler(esp_ble_mesh_msg_ctx_t *ctx, uint16_t length, uint8_t *msg_ptr) {
@@ -62,6 +63,7 @@ static void recv_response_handler(esp_ble_mesh_msg_ctx_t *ctx, uint16_t length, 
 
     // message went through, clear edge reset timeout
     setTimeout(false);
+    stop_timer();
 }
 
 static void timeout_handler(esp_ble_mesh_msg_ctx_t *ctx, uint32_t opcode) {
@@ -78,7 +80,7 @@ static void timeout_handler(esp_ble_mesh_msg_ctx_t *ctx, uint32_t opcode) {
         startTimer();
         setTimeout(true);
         // pinging Root checking connectivity
-        loop_message_connection();
+        // loop_message_connection();
     }
     else if(getTimeElapsed() > 20.0) // that means timeout already happened once -- and if timeout persist for 20 seconds then reset itself.
     {
