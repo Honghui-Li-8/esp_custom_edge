@@ -18,7 +18,6 @@
 #define TAG_W "Debug"
 
 extern void send_message(uint16_t dst_address, uint16_t length, uint8_t *data_ptr);
-extern void send_broadcast(uint16_t length, uint8_t *data_ptr);
 extern void printNetworkInfo();
 
 clock_t start_time;
