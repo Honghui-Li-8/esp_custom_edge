@@ -115,8 +115,20 @@ static void button_tap_cb(void* arg)
     ESP_LOGW(TAG_W, "button pressed ------------------------- ");
 
     ESP_LOGW(TAG_W, "sending------");
-    char data[20] = "[M] Hello";
-    send_message(PROV_OWN_ADDR, strlen(data), (uint8_t*) data, false);
+    static control = 0;
+
+    if (control == 0) {
+        char data[20] = "[M] Hello";
+        send_message(PROV_OWN_ADDR, strlen(data), (uint8_t *)data, false);
+        control = 1;
+    } else {
+        char data[20] = "[D]GPS6------";
+        data[3] = (char) 0x06; // 6 byte GPS data
+
+        send_message(PROV_OWN_ADDR, strlen(data), (uint8_t *)data, false);
+        control = 0;
+    }
+
     ESP_LOGW(TAG_W, "sended-------");
 
 }
