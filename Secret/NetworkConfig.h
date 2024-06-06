@@ -19,7 +19,7 @@
 
 #define INIT_UUID_MATCH     { 0x32, 0x10 } // regulate the node get provitioned
 
-#define MSG_SEND_TTL        3
+#define MSG_SEND_TTL        1 // 1 for testing
 #define MSG_TIMEOUT         0
 #define MSG_ROLE_ROOT       ROLE_PROVISIONER
 #define MSG_ROLE_EDGE       ROLE_NODE
