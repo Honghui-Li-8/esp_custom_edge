@@ -46,16 +46,16 @@ bool getTimeout() {
 
 void setLEDState(enum State nodeState) {
     if(nodeState == DISCONNECTED) {
-        board_led_operation(10, 0, 0); // Red LED Color
+        board_led_operation(50, 0, 0); // Red LED Color
     }
     else if (nodeState == CONNECTING) {
-        board_led_operation(0, 0, 10); // Blue LED Color
+        board_led_operation(0, 0, 50); // Blue LED Color
     }
     else if (nodeState ==  CONNECTED) {
-        board_led_operation(0, 10, 0); // Green LED Color
+        board_led_operation(0, 50, 0); // Green LED Color
     }
     else if (nodeState == WORKING) {
-        board_led_operation(10, 10, 0); // Yellow LED Color
+        board_led_operation(50, 50, 0); // Yellow LED Color
     }
     else {
         board_led_operation(0, 0, 0); // No Color == No State

@@ -21,6 +21,8 @@ static void config_complete_handler(uint16_t addr) {
     ESP_LOGI(TAG_M,  " ----------- Node-0x%04x config_complete -----------", addr);
     node_own_addr = addr;
     setNodeState(CONNECTED);
+    // pinging Root checking connectivity
+    loop_message_connection();
     uart_sendMsg(0, "[E] Module Configured");
 }
 
@@ -54,7 +56,7 @@ static void recv_message_handler(esp_ble_mesh_msg_ctx_t *ctx, uint16_t length, u
 
     // clear edge reset timeout
     setTimeout(false);
-    stop_timer();
+    // stop_timer();
 }
 
 static void recv_response_handler(esp_ble_mesh_msg_ctx_t *ctx, uint16_t length, uint8_t *msg_ptr) {
@@ -63,7 +65,7 @@ static void recv_response_handler(esp_ble_mesh_msg_ctx_t *ctx, uint16_t length, 
 
     // message went through, clear edge reset timeout
     setTimeout(false);
-    stop_timer();
+    // stop_timer();
 }
 
 static void timeout_handler(esp_ble_mesh_msg_ctx_t *ctx, uint32_t opcode) {
@@ -76,18 +78,17 @@ static void timeout_handler(esp_ble_mesh_msg_ctx_t *ctx, uint32_t opcode) {
     ESP_LOGI(TAG_M, " Current timeout value: %s", currentTimeout ? "true" : "false");
 
     if(!currentTimeout) {
-        ESP_LOGI(TAG_M, " Timer is starting to count down ");
+        ESP_LOGI(TAG_M, "Keep the first timeout time...");
         startTimer();
         setTimeout(true);
-        // pinging Root checking connectivity
-        // loop_message_connection();
     }
     else if(getTimeElapsed() > 20.0) // that means timeout already happened once -- and if timeout persist for 20 seconds then reset itself.
     {
-        stop_timer(); //for timer_h
-        stop_periodic_timer(); //for esp_timer
+        // stop_timer(); //for timer_h
         ESP_LOGI(TAG_M, "Edge not able to connect to root, Resetting the Edge Module "); //i should make a one-hit timer just before resetting.
-        esp_restart();
+
+        reset_edge();
+        // reset_esp32();
     }
 }
 
@@ -174,7 +175,8 @@ static void execute_uart_command(char *command, size_t cmd_total_len) {
     } 
     else if (strncmp(command, CMD_RESET_EDGE, CMD_LEN) == 0) {
         // restart edge module
-        esp_restart();
+        setNodeState(DISCONNECTED);
+        reset_edge();
     }
     // else if (strncmp(command, "CLEAN", 5) == 0)
     // {
