@@ -203,10 +203,10 @@ void stop_current_test(current_test)
         return;
     }
 
-    if (strncmp(current_test, "DATA-", 5) == 0)
-    {
-        ESP_ERROR_CHECK(esp_timer_delete(data_send_timer));
-    }
+    // if (strncmp(current_test, "DATA-", 5) == 0)
+    // {
+    //     ESP_ERROR_CHECK(esp_timer_delete(data_send_timer));
+    // }
 
     strncpy(current_test, "None-", 5);
     running_test = false;
@@ -252,10 +252,10 @@ void local_edge_device_network_message_handler(uint16_t node_addr, uint8_t *data
         {
             start_current_test(current_test);
         }
-        else if (strncmp(payload, "F", 1) == 0)
-        {
-            stop_current_test(current_test);
-        }
+        // else if (strncmp(payload, "F", 1) == 0)
+        // {
+        //     stop_current_test(current_test);
+        // }
     }
     else if ((strncmp(opcode, "RST", 3) == 0))
     {
