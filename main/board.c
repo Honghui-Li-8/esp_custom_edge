@@ -21,7 +21,7 @@
 #define TAG_B "BOARD"
 #define TAG_W "Debug"
 
-extern void send_message(uint16_t dst_address, uint16_t length, uint8_t *data_ptr);
+extern void send_message(uint16_t dst_address, uint16_t length, uint8_t *data_ptr, bool require_response);
 extern void printNetworkInfo();
 
 clock_t start_time;
@@ -72,50 +72,83 @@ static void board_led_init(void)
     rmt_encoder_init();
 }
 
+// ====================== repetive code, better clean up ======================
+void board_dispatch_network_command(char *ble_cmd, uint16_t node_addr, uint8_t *data_buffer, size_t data_length)
+{
+    uint8_t command_msg[MAX_MSG_LEN + BLE_CMD_LEN + BLE_ADDR_LEN];
+    memset(command_msg, 0, MAX_MSG_LEN + BLE_CMD_LEN + BLE_ADDR_LEN);
+    uint8_t *msg_itr = command_msg;
+    uint16_t node_addr_network_order = htons(node_addr);
+
+    if (data_length > MAX_MSG_LEN)
+    {
+        ESP_LOGE(TAG_L, "Local Edge Device Trying to Send %d bytes message that's more than MAX_MSG_LEN-%d", (int)data_length, (int)MAX_MSG_LEN);
+        return;
+    }
+
+    memcpy(msg_itr, ble_cmd, BLE_CMD_LEN);
+    msg_itr += BLE_CMD_LEN;
+    memcpy(msg_itr, &node_addr_network_order, BLE_ADDR_LEN);
+    msg_itr += BLE_ADDR_LEN;
+
+    if (data_buffer != NULL)
+    {
+        memcpy(msg_itr, data_buffer, data_length);
+        msg_itr += data_length;
+    }
+
+    ESP_LOGI(TAG_L, "data_buffer: '%.*s'", data_length, data_buffer);
+    execute_network_command((char *)command_msg, msg_itr - command_msg);
+}
+
+void board_ble_send_to_root(uint8_t *data_buffer, size_t data_length)
+{
+    char ble_cmd[7] = "SEND-";
+    ESP_LOGI(TAG_L, "data_buffer: '%.*s'", data_length, data_buffer);
+    board_dispatch_network_command(ble_cmd, 0, data_buffer, data_length);
+}
+
+// ====================== repetive code, better clean up ======================
+
 static void button_tap_cb(void* arg)
 {
     ESP_LOGW(TAG_W, "button pressed ------------------------- ");
-    // static uint8_t *data_buffer = NULL;
-    // if (data_buffer == NULL) {
-    //     data_buffer = (uint8_t*)malloc(128);
-    //     if (data_buffer == NULL) {
-    //         printf("Memory allocation failed.\n");
-    //         return;
-    //     }
-    // }
 
-    // strcpy((char*)data_buffer, "Broadcast sent");
-    // send_broadcast(strlen("Broadcast sent") + 1, data_buffer);
-
-    // static int control = 1;
-    // // if (control == 0) {
-    // //     // TSTITEST0
-    // //     ESP_LOGW(TAG_W, "send RST------");
-    // //     char data[20] = "RST";
-    // //     uart_sendData(0, (uint8_t*) data, strlen(data));
-    // //     ESP_LOGW(TAG_W, "sended RST-------");
-    // //     control = 1;
-    // // }else
-    // if (control == 1) {
-    //     // TSTITEST0
-    //     ESP_LOGW(TAG_W, "sending------");
-    //     char data[20] = "TSTITEST0";
-    //     uart_sendData(0, (uint8_t*) data, strlen(data));
-    //     ESP_LOGW(TAG_W, "sended-------");
-    //     control = 2;
-    // } else {
-    //     // start test
-    //     ESP_LOGW(TAG_W, "sending------");
-    //     char data[20] = "TSTS";
-    //     uart_sendData(0, (uint8_t*) data, strlen(data));
-    //     ESP_LOGW(TAG_W, "sended-------");
-    //     control = 1;
-    // }
     ESP_LOGW(TAG_W, "sending------");
-    char data[20] = "TSTS";
-    send_message(PROV_OWN_ADDR, strlen(data), (uint8_t*) data);
+    static control = 0;
+
+    if (control == 0) {
+        char data[20] = "[M] Hello";
+        send_message(PROV_OWN_ADDR, strlen(data), (uint8_t *)data, false);
+        control = 1;
+    } else {
+        char data[20] = "[D]GPS6------";
+        data[3] = (char) 0x06; // 6 byte GPS data
+
+        send_message(PROV_OWN_ADDR, strlen(data), (uint8_t *)data, false);
+        control = 0;
+    }
+
     ESP_LOGW(TAG_W, "sended-------");
 
+}
+
+static void button_liong_press_cb(void *arg)
+{
+    ESP_LOGW(TAG_W, "button long pressed ------------------------- ");
+    ESP_LOGW(TAG_W, "sending robot reqyest------");
+    uint8_t buffer[10];
+    uint8_t *buf_itr = buffer;
+
+    // message type
+    strncpy((char *)buf_itr, "REQ", 3);
+    buf_itr += 3;
+
+    // request type
+    strncpy((char *)buf_itr, "R", 1);
+    buf_itr += 1;
+
+    board_ble_send_to_root(buffer, buf_itr - buffer);
 }
 
 static void board_button_init(void)
@@ -123,6 +156,7 @@ static void board_button_init(void)
     button_handle_t btn_handle = iot_button_create(BUTTON_IO_NUM, BUTTON_ACTIVE_LEVEL);
     if (btn_handle) {
         iot_button_set_evt_cb(btn_handle, BUTTON_CB_RELEASE, button_tap_cb, "RELEASE");
+        iot_button_set_serial_cb(btn_handle, 3, 5000, button_liong_press_cb, "SERIAL");
     }
 }
 

@@ -282,7 +282,7 @@ static void ble_mesh_custom_model_cb(esp_ble_mesh_model_cb_event_t event, esp_bl
     }
 }
 
-void send_message(uint16_t dst_address, uint16_t length, uint8_t *data_ptr)
+void send_message(uint16_t dst_address, uint16_t length, uint8_t *data_ptr, bool require_response)
 {
     esp_ble_mesh_msg_ctx_t ctx = {0};
     uint32_t opcode = ECS_193_MODEL_OP_MESSAGE;
@@ -299,7 +299,7 @@ void send_message(uint16_t dst_address, uint16_t length, uint8_t *data_ptr)
     ctx.send_ttl = MSG_SEND_TTL;
     
     setNodeState(WORKING);
-    err = esp_ble_mesh_client_model_send_msg(client_model, &ctx, opcode, length, data_ptr, MSG_TIMEOUT, true, message_role);
+    err = esp_ble_mesh_client_model_send_msg(client_model, &ctx, opcode, length, data_ptr, MSG_TIMEOUT, require_response, message_role);
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "Failed to send message to node addr 0x%04x, err_code %d", dst_address, err);
         return;
