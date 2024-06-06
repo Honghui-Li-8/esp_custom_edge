@@ -16,10 +16,13 @@
 #define TAG TAG_EDGE
 #define TAG_W "Debug"
 #define TAG_INFO "Net_Info"
-#define timer_for_ping 6000000 //6 seconds for pinging root to check conectivity
+#define timer_for_ping 10000000 //10 seconds for pinging root to check conectivity
 
 enum State nodeState = DISCONNECTED;
 esp_timer_handle_t periodic_timer;
+esp_timer_handle_t oneshot_timer;
+
+bool periodic_timer_start = false;
 
 static uint8_t dev_uuid[ESP_BLE_MESH_OCTET16_LEN] = INIT_UUID_MATCH;
 static struct esp_ble_mesh_key {
@@ -279,7 +282,7 @@ static void ble_mesh_custom_model_cb(esp_ble_mesh_model_cb_event_t event, esp_bl
     }
 }
 
-void send_message(uint16_t dst_address, uint16_t length, uint8_t *data_ptr)
+void send_message(uint16_t dst_address, uint16_t length, uint8_t *data_ptr, bool require_response)
 {
     esp_ble_mesh_msg_ctx_t ctx = {0};
     uint32_t opcode = ECS_193_MODEL_OP_MESSAGE;
@@ -296,7 +299,7 @@ void send_message(uint16_t dst_address, uint16_t length, uint8_t *data_ptr)
     ctx.send_ttl = MSG_SEND_TTL;
     
     setNodeState(WORKING);
-    err = esp_ble_mesh_client_model_send_msg(client_model, &ctx, opcode, length, data_ptr, MSG_TIMEOUT, true, message_role);
+    err = esp_ble_mesh_client_model_send_msg(client_model, &ctx, opcode, length, data_ptr, MSG_TIMEOUT, require_response, message_role);
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "Failed to send message to node addr 0x%04x, err_code %d", dst_address, err);
         return;
@@ -377,7 +380,6 @@ static esp_err_t config_complete(uint16_t node_addr) {
     return ESP_OK;
 }
 
-
 void send_connectivity_wrapper(void *arg) {
     char connectivity_msg[3] = "C";
 
@@ -386,6 +388,7 @@ void send_connectivity_wrapper(void *arg) {
 
 void loop_message_connection() {
     ESP_LOGI(TAG, "----- LOOP MESSAGE STARTED -----\n");
+    periodic_timer_start = true;
     const esp_timer_create_args_t periodic_timer_args = {
             .callback = &send_connectivity_wrapper,
             // .callback = &periodic_timer_callback,
@@ -399,10 +402,6 @@ void loop_message_connection() {
     ESP_LOGI(TAG, "Started periodic timers, time since boot: %lld us", esp_timer_get_time());
 }
 
-void stop_timer() {
-    ESP_ERROR_CHECK(esp_timer_delete(periodic_timer));
-}
-
 enum State getNodeState() {
     return nodeState;
 }
@@ -410,6 +409,13 @@ enum State getNodeState() {
 void setNodeState(enum State state) {
     nodeState = state;
     setLEDState(state);
+}
+
+void stop_esp_timer() {
+    ESP_ERROR_CHECK(esp_timer_delete(oneshot_timer));
+    if(periodic_timer_start) {
+        stop_periodic_timer();
+    }
 }
 
 void stop_periodic_timer() {
@@ -611,15 +617,11 @@ static esp_err_t ble_mesh_init(void)
     return ESP_OK;
 }
 
-// static void periodic_state_callback(void* arg)
-// {
-//     int64_t time_since_boot = esp_timer_get_time();
-//     // ESP_LOGI(TAG, "Current Node State: %d", nodeState);
-// }
-
 void reset_esp32()
 {
     // order edge module to restart since network is about to get refreshed
+    stop_esp_timer();
+    board_led_operation(0,0,0); //turn off the LED
     char edge_restart_message[20] = "RST";
     uint16_t msg_length = strlen(edge_restart_message);
     broadcast_message(msg_length, (uint8_t *)edge_restart_message);
@@ -630,6 +632,15 @@ void reset_esp32()
     error = esp_ble_mesh_provisioner_direct_erase_settings();
 #endif /* CONFIG_BLE_MESH_SETTINGS */
     uart_sendMsg(0, "Persistent Memory Reseted, Should Restart Module Later\n");
+}
+
+void reset_edge()
+{
+    // order edge module to restart since network is about to get refreshed
+    stop_esp_timer();
+    board_led_operation(0,0,0); //turn off the LED
+    sleep(1);
+    esp_restart();
 }
 
 static void oneshot_timer_callback(void* arg)
@@ -690,32 +701,13 @@ esp_err_t esp_module_edge_init(
     }
 
     ESP_LOGI(TAG, "Done Initializing...");
-    // const esp_timer_create_args_t periodic_state_args = {
-    //         .callback = &periodic_state_callback,
-    //         /* name is optional, but may help identify the timer when debugging */
-    //         .name = "state"
-    // };
-    // esp_timer_handle_t periodic_state;
-    // ESP_ERROR_CHECK(esp_timer_create(&periodic_state_args, &periodic_state));
-    
-    // ESP_ERROR_CHECK(esp_timer_start_periodic(periodic_state, 1000000));
-    // ESP_LOGI(TAG, "Started timers, time since boot: %lld us", esp_timer_get_time());
 
-    // /* Let the timer run for a little bit more */
-    // usleep(20000000);
-
-    // /* Clean up and finish the example */
-    // ESP_ERROR_CHECK(esp_timer_stop(periodic_state));
-    // ESP_ERROR_CHECK(esp_timer_delete(periodic_state));
-    // ESP_LOGI(TAG, "Stopped and deleted timers");
-
-    //A timer to active the node state LED
+    // A timer to active the node state LED
     const esp_timer_create_args_t oneshot_timer_args = {
                 .callback = &oneshot_timer_callback,
                 /* argument specified here will be passed to timer callback function */
                 .name = "one-shot"
     };
-    esp_timer_handle_t oneshot_timer;
     ESP_ERROR_CHECK(esp_timer_create(&oneshot_timer_args, &oneshot_timer));
     ESP_ERROR_CHECK(esp_timer_start_once(oneshot_timer, 3000000));
 

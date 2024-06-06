@@ -5,10 +5,7 @@
 
 #define TAG_M "MAIN"
 #define TAG_ALL "*"
-#define OPCODE_LEN 3
-#define NODE_ADDR_LEN 2  // can't change bc is base on esp
-#define NODE_UUID_LEN 16 // can't change bc is base on esp
-#define CMD_LEN 5        // network command length - 5 byte
+// network command length - 5 byte
 #define CMD_SEND_MSG "SEND-"
 #define CMD_BROADCAST_MSG "BCAST"
 #define CMD_RESET_EDGE "RST-E"
@@ -24,26 +21,21 @@ static void config_complete_handler(uint16_t addr) {
     ESP_LOGI(TAG_M,  " ----------- Node-0x%04x config_complete -----------", addr);
     node_own_addr = addr;
     setNodeState(CONNECTED);
-    uart_sendMsg(0, "[E] Module Configured");
-
     // pinging Root checking connectivity
     loop_message_connection();
+    uart_sendMsg(0, "[E] Module Configured");
 }
 
 static void recv_message_handler(esp_ble_mesh_msg_ctx_t *ctx, uint16_t length, uint8_t *msg_ptr) {
     // ESP_LOGI(TAG_M, " ----------- recv_message handler trigered -----------");
     uint16_t node_addr = ctx->addr;
-    ESP_LOGW(TAG_M, "-> Received Message \'%s\' from node-%d", (char*)msg_ptr, node_addr);
+    ESP_LOGW(TAG_M, "-> Received Message \'%*s\' from node-%d", length, (char *)msg_ptr, node_addr);
 
     // recived a ble-message from edge ndoe
     // ========== potential special case ==========
     if (strncmp((char*)msg_ptr, "Special Case", 12) == 0) {
         // place holder for special case that need to be handled in esp-root module
         // handle locally
-        char response[5] = "S";
-        uint16_t response_length = strlen(response);
-        send_response(ctx, response_length, (uint8_t*) response);
-        ESP_LOGW(TAG_M, "<- Sended Response \'%s\'", (char*) response);
     }
 
     // ========== General case, pass up to APP level ==========
@@ -52,22 +44,24 @@ static void recv_message_handler(esp_ble_mesh_msg_ctx_t *ctx, uint16_t length, u
         uart_sendData(node_addr, msg_ptr, length);
     }
 
-    // send response
-    char response[5] = "S";
-    uint16_t response_length = strlen(response);
-    send_response(ctx, response_length, (uint8_t *) response);
-    ESP_LOGW(TAG_M, "<- Sended Response \'%s\'", (char *)response);
+    // // send response
+    // char response[5] = "S";
+    // uint16_t response_length = strlen(response);
+    // send_response(ctx, response_length, (uint8_t *)response);
+    // ESP_LOGW(TAG_M, "<- Sended Response %d bytes \'%*s\'", response_length, response_length, (char *)response);
 
     // clear edge reset timeout
     setTimeout(false);
+    // stop_timer();
 }
 
 static void recv_response_handler(esp_ble_mesh_msg_ctx_t *ctx, uint16_t length, uint8_t *msg_ptr) {
     // ESP_LOGI(TAG_M, " ----------- recv_response handler trigered -----------");
-    ESP_LOGW(TAG_M, "-> Received Response [%s]\n", (char*)msg_ptr);
+    ESP_LOGW(TAG_M, "-> Received Response %d bytes [%*s]\n", length , length, (char *)msg_ptr);
 
     // message went through, clear edge reset timeout
     setTimeout(false);
+    // stop_timer();
 }
 
 static void timeout_handler(esp_ble_mesh_msg_ctx_t *ctx, uint32_t opcode) {
@@ -80,16 +74,17 @@ static void timeout_handler(esp_ble_mesh_msg_ctx_t *ctx, uint32_t opcode) {
     ESP_LOGI(TAG_M, " Current timeout value: %s", currentTimeout ? "true" : "false");
 
     if(!currentTimeout) {
-        ESP_LOGI(TAG_M, " Timer is starting to count down ");
+        ESP_LOGI(TAG_M, "Keep the first timeout time...");
         startTimer();
         setTimeout(true);
     }
     else if(getTimeElapsed() > 20.0) // that means timeout already happened once -- and if timeout persist for 20 seconds then reset itself.
     {
-        stop_timer(); //for timer_h
-        stop_periodic_timer(); //for esp_timer
+        // stop_timer(); //for timer_h
         ESP_LOGI(TAG_M, "Edge not able to connect to root, Resetting the Edge Module "); //i should make a one-hit timer just before resetting.
-        esp_restart();
+
+        reset_edge();
+        // reset_esp32();
     }
 }
 
@@ -102,7 +97,7 @@ static void broadcast_handler(esp_ble_mesh_msg_ctx_t *ctx, uint16_t length, uint
     }
 
     uint16_t node_addr = ctx->addr;
-    ESP_LOGE(TAG_M, "-> Received Broadcast Message \'%s\' from node-%d", (char *)msg_ptr, node_addr);
+    ESP_LOGE(TAG_M, "-> Received Broadcast Message \'%*s\' from node-%d", length, (char *) msg_ptr, node_addr);
 
     // ========== General case, pass up to APP level ==========
     // pass node_addr & data to to edge device using uart
@@ -164,9 +159,9 @@ static void execute_uart_command(char *command, size_t cmd_total_len) {
         }
         
         ESP_LOGI(TAG_E, "Sending message to address-%d ...", node_addr);
-        send_message(node_addr, msg_length, (uint8_t *) msg_start);
+        send_message(node_addr, msg_length, (uint8_t *) msg_start, false);
         ESP_LOGW(TAG_M, "<- Sended Message \'%.*s\' to node-%d", msg_length, (char*) msg_start, node_addr);
-    } 
+    }
     else if (strncmp(command, CMD_BROADCAST_MSG, CMD_LEN) == 0) {
         ESP_LOGI(TAG_E, "executing \'BCAST\'");
         char *msg_start = command + CMD_LEN + NODE_ADDR_LEN;
@@ -176,7 +171,8 @@ static void execute_uart_command(char *command, size_t cmd_total_len) {
     } 
     else if (strncmp(command, CMD_RESET_EDGE, CMD_LEN) == 0) {
         // restart edge module
-        esp_restart();
+        setNodeState(DISCONNECTED);
+        reset_edge();
     }
     // else if (strncmp(command, "CLEAN", 5) == 0)
     // {
@@ -200,6 +196,13 @@ static void execute_uart_command(char *command, size_t cmd_total_len) {
     }
 
     ESP_LOGI(TAG_E, "Command [%.*s] executed", cmd_total_len, command);
+}
+
+void execute_network_command(char *command, size_t cmd_total_len) {
+#ifdef LOCAL_EDGE_DEVICE_ENABLED
+    // meant to be only used by local_edge_device
+    execute_uart_command(command, cmd_total_len);
+#endif
 }
 
 static void uart_task_handler(char *data) {
