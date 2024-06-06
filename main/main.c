@@ -34,10 +34,6 @@ static void recv_message_handler(esp_ble_mesh_msg_ctx_t *ctx, uint16_t length, u
     if (strncmp((char*)msg_ptr, "Special Case", 12) == 0) {
         // place holder for special case that need to be handled in esp-root module
         // handle locally
-        char response[5] = "S";
-        uint16_t response_length = strlen(response);
-        send_response(ctx, response_length, (uint8_t*) response);
-        ESP_LOGW(TAG_M, "<- Sended Response %d bytes \'%*s\'", response_length, response_length, (char *)response);
     }
 
     // ========== General case, pass up to APP level ==========
@@ -46,11 +42,11 @@ static void recv_message_handler(esp_ble_mesh_msg_ctx_t *ctx, uint16_t length, u
         uart_sendData(node_addr, msg_ptr, length);
     }
 
-    // send response
-    char response[5] = "S";
-    uint16_t response_length = strlen(response);
-    send_response(ctx, response_length, (uint8_t *)response);
-    ESP_LOGW(TAG_M, "<- Sended Response %d bytes \'%*s\'", response_length, response_length, (char *)response);
+    // // send response
+    // char response[5] = "S";
+    // uint16_t response_length = strlen(response);
+    // send_response(ctx, response_length, (uint8_t *)response);
+    // ESP_LOGW(TAG_M, "<- Sended Response %d bytes \'%*s\'", response_length, response_length, (char *)response);
 
     // clear edge reset timeout
     setTimeout(false);
@@ -162,9 +158,9 @@ static void execute_uart_command(char *command, size_t cmd_total_len) {
         }
         
         ESP_LOGI(TAG_E, "Sending message to address-%d ...", node_addr);
-        send_message(node_addr, msg_length, (uint8_t *) msg_start);
+        send_message(node_addr, msg_length, (uint8_t *) msg_start, false);
         ESP_LOGW(TAG_M, "<- Sended Message \'%.*s\' to node-%d", msg_length, (char*) msg_start, node_addr);
-    } 
+    }
     else if (strncmp(command, CMD_BROADCAST_MSG, CMD_LEN) == 0) {
         ESP_LOGI(TAG_E, "executing \'BCAST\'");
         char *msg_start = command + CMD_LEN + NODE_ADDR_LEN;

@@ -21,7 +21,7 @@
 #define TAG_B "BOARD"
 #define TAG_W "Debug"
 
-extern void send_message(uint16_t dst_address, uint16_t length, uint8_t *data_ptr);
+extern void send_message(uint16_t dst_address, uint16_t length, uint8_t *data_ptr, bool require_response);
 extern void printNetworkInfo();
 
 clock_t start_time;
@@ -113,7 +113,7 @@ static void button_tap_cb(void* arg)
     // }
     ESP_LOGW(TAG_W, "sending------");
     char data[20] = "TSTS";
-    send_message(PROV_OWN_ADDR, strlen(data), (uint8_t*) data);
+    send_message(PROV_OWN_ADDR, strlen(data), (uint8_t*) data, false);
     ESP_LOGW(TAG_W, "sended-------");
 
 }
