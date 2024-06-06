@@ -115,7 +115,7 @@ static void button_tap_cb(void* arg)
     ESP_LOGW(TAG_W, "button pressed ------------------------- ");
 
     ESP_LOGW(TAG_W, "sending------");
-    static control = 0;
+    static int control = 0;
 
     if (control == 0) {
         char data[20] = "[M] Hello";

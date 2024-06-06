@@ -177,7 +177,7 @@ void create_data_send_event()
     ESP_ERROR_CHECK(esp_timer_start_periodic(data_send_timer, data_send_interval));
 }
 
-void start_current_test(current_test) {
+void start_current_test(char* current_test) {
     ESP_LOGI(TAG_L, "IS 'TST|S' test start");
     
     if (strncmp(current_test, "TEST0", 5) == 0)
@@ -197,7 +197,7 @@ void start_current_test(current_test) {
     running_test = true;
 }
 
-void stop_current_test(current_test)
+void stop_current_test(char* current_test)
 {
     if (!running_test) {
         return;
@@ -208,7 +208,7 @@ void stop_current_test(current_test)
         ESP_ERROR_CHECK(esp_timer_delete(data_send_timer));
     }
 
-    strncpy(current_test, "None-", 5);
+    memcpy(current_test, "None-", 5);
     running_test = false;
 }
 
