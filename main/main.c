@@ -26,7 +26,7 @@ static void config_complete_handler(uint16_t addr) {
     uart_sendMsg(0, "[E] Module Configured");
 }
 
-static void recv_message_handler(esp_ble_mesh_msg_ctx_t *ctx, uint16_t length, uint8_t *msg_ptr) {
+static void recv_message_handler(esp_ble_mesh_msg_ctx_t *ctx, uint16_t length, uint8_t *msg_ptr, uint32_t opcode) {
     // ESP_LOGI(TAG_M, " ----------- recv_message handler trigered -----------");
     uint16_t node_addr = ctx->addr;
     ESP_LOGW(TAG_M, "-> Received Message \'%*s\' from node-%d", length, (char *)msg_ptr, node_addr);
@@ -44,15 +44,19 @@ static void recv_message_handler(esp_ble_mesh_msg_ctx_t *ctx, uint16_t length, u
         uart_sendData(node_addr, msg_ptr, length);
     }
 
-    // // send response
-    // char response[5] = "S";
-    // uint16_t response_length = strlen(response);
-    // send_response(ctx, response_length, (uint8_t *)response);
-    // ESP_LOGW(TAG_M, "<- Sended Response %d bytes \'%*s\'", response_length, response_length, (char *)response);
-
     // clear edge reset timeout
     setTimeout(false);
     // stop_timer();
+
+    // check if needs an response to confirm recived
+    if (opcode != ECS_193_MODEL_OP_MESSAGE_R) {
+        return;
+    }
+    // send response
+    char response[5] = "S";
+    uint16_t response_length = strlen(response);
+    send_response(ctx, response_length, (uint8_t *)response);
+    ESP_LOGW(TAG_M, "<- Sended Response %d bytes \'%*s\'", response_length, response_length, (char *)response);
 }
 
 static void recv_response_handler(esp_ble_mesh_msg_ctx_t *ctx, uint16_t length, uint8_t *msg_ptr) {
