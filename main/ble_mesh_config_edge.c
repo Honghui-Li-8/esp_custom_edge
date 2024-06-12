@@ -36,7 +36,7 @@ static struct esp_ble_mesh_key {
 
 // =============== Line Sync with Root Code for future readers ===============
 #define MSG_ROLE MSG_ROLE_EDGE
-static int ble_message_ttl = DEFAULT_MSG_SEND_TTL;
+static uint8_t ble_message_ttl = DEFAULT_MSG_SEND_TTL;
 
 static esp_ble_mesh_prov_t provision = {
     .uuid = dev_uuid,
@@ -80,7 +80,7 @@ static esp_ble_mesh_model_t root_models[] = {
 static const esp_ble_mesh_client_op_pair_t client_op_pair[] = {
     { ECS_193_MODEL_OP_MESSAGE, ECS_193_MODEL_OP_RESPONSE },
     { ECS_193_MODEL_OP_BROADCAST, ECS_193_MODEL_OP_EMPTY },
-    { ECS_193_MODEL_OP_CONNECTIVITY, ECS_193_MODEL_OP_CONFIRM},
+    { ECS_193_MODEL_OP_CONNECTIVITY, ECS_193_MODEL_OP_EMPTY},
 };
 
 static esp_ble_mesh_client_t ecs_193_client = {
@@ -132,7 +132,7 @@ static void (*connectivity_handler_cb)(esp_ble_mesh_msg_ctx_t *ctx, uint16_t len
 
 
 //-------------------- EDGE Network Utility Functions ----------------
-void set_message_ttl(int new_ttl) {
+void set_message_ttl(uint8_t new_ttl) {
     ble_message_ttl = new_ttl;
 }
 
@@ -263,8 +263,15 @@ static void ble_mesh_custom_model_cb(esp_ble_mesh_model_cb_event_t event, esp_bl
             broadcast_handler_cb(param->model_operation.ctx, param->model_operation.length, param->model_operation.msg);
         } else if (param->model_operation.opcode == ECS_193_MODEL_OP_CONNECTIVITY) {
             connectivity_handler_cb(param->model_operation.ctx, param->model_operation.length, param->model_operation.msg);
-        } else if (param->model_operation.opcode == ECS_193_MODEL_OP_CONFIRM) {
-            setTimeout(false);
+        } else if (param->model_operation.opcode == ECS_193_MODEL_OP_SET_TTL) {
+            uint8_t new_ttl = 0;
+            if (param->model_operation.length < 1) {
+                ESP_LOGW(TAG, "Set ttl message too short length:%d", param->model_operation.length);
+                return; 
+            }
+            
+            new_ttl = param->model_operation.msg[0];
+            set_message_ttl(new_ttl);
         }
         
         break;
