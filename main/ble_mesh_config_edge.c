@@ -34,8 +34,9 @@ static struct esp_ble_mesh_key {
 // static nvs_handle_t NVS_HANDLE;
 // static const char * NVS_KEY = NVS_KEY_ROOT;
 
-
+// =============== Line Sync with Root Code for future readers ===============
 #define MSG_ROLE MSG_ROLE_EDGE
+static int ble_message_ttl = DEFAULT_MSG_SEND_TTL;
 
 static esp_ble_mesh_prov_t provision = {
     .uuid = dev_uuid,
@@ -63,7 +64,7 @@ static esp_ble_mesh_cfg_srv_t config_server = {
 #else
     .gatt_proxy = ESP_BLE_MESH_GATT_PROXY_NOT_SUPPORTED,
 #endif
-    .default_ttl = 7,
+    .default_ttl = DEFAULT_MSG_SEND_TTL,
     /* 3 transmissions with 20ms interval */
     .net_transmit = ESP_BLE_MESH_TRANSMIT(2, 20),
     .relay_retransmit = ESP_BLE_MESH_TRANSMIT(2, 20),
@@ -78,8 +79,8 @@ static esp_ble_mesh_model_t root_models[] = {
 
 static const esp_ble_mesh_client_op_pair_t client_op_pair[] = {
     { ECS_193_MODEL_OP_MESSAGE, ECS_193_MODEL_OP_RESPONSE },
-    { ECS_193_MODEL_OP_BROADCAST, NULL },
-    { ECS_193_MODEL_OP_CONNECTIVITY, ECS_193_MODEL_OP_RESPONSE},
+    { ECS_193_MODEL_OP_BROADCAST, ECS_193_MODEL_OP_EMPTY },
+    { ECS_193_MODEL_OP_CONNECTIVITY, ECS_193_MODEL_OP_CONFIRM},
 };
 
 static esp_ble_mesh_client_t ecs_193_client = {
@@ -96,6 +97,7 @@ static esp_ble_mesh_model_op_t server_op[] = { // operation server will "RECEIVE
     ESP_BLE_MESH_MODEL_OP(ECS_193_MODEL_OP_MESSAGE, 2),
     ESP_BLE_MESH_MODEL_OP(ECS_193_MODEL_OP_BROADCAST, 2),
     ESP_BLE_MESH_MODEL_OP(ECS_193_MODEL_OP_CONNECTIVITY, 1),
+    ESP_BLE_MESH_MODEL_OP(ECS_193_MODEL_OP_SET_TTL, 1), // edge will recive set ttl from root
     ESP_BLE_MESH_MODEL_OP_END,
 };
 
@@ -129,7 +131,11 @@ static void (*broadcast_handler_cb)(esp_ble_mesh_msg_ctx_t *ctx, uint16_t length
 static void (*connectivity_handler_cb)(esp_ble_mesh_msg_ctx_t *ctx, uint16_t length, uint8_t *msg_ptr) = NULL;;
 
 
-//-------------------- EDGE Network Functions ----------------
+//-------------------- EDGE Network Utility Functions ----------------
+void set_message_ttl(int new_ttl) {
+    ble_message_ttl = new_ttl;
+}
+
 static esp_err_t prov_complete(uint16_t net_idx, uint16_t addr, uint8_t flags, uint32_t iv_index)
 {
     ble_mesh_key.net_idx = net_idx;
@@ -257,6 +263,8 @@ static void ble_mesh_custom_model_cb(esp_ble_mesh_model_cb_event_t event, esp_bl
             broadcast_handler_cb(param->model_operation.ctx, param->model_operation.length, param->model_operation.msg);
         } else if (param->model_operation.opcode == ECS_193_MODEL_OP_CONNECTIVITY) {
             connectivity_handler_cb(param->model_operation.ctx, param->model_operation.length, param->model_operation.msg);
+        } else if (param->model_operation.opcode == ECS_193_MODEL_OP_CONFIRM) {
+            setTimeout(false);
         }
         
         break;
@@ -296,7 +304,7 @@ void send_message(uint16_t dst_address, uint16_t length, uint8_t *data_ptr, bool
     ctx.net_idx = ble_mesh_key.net_idx;
     ctx.app_idx = ble_mesh_key.app_idx;
     ctx.addr = dst_address;
-    ctx.send_ttl = MSG_SEND_TTL;
+    ctx.send_ttl = ble_message_ttl;
     
     setNodeState(WORKING);
     err = esp_ble_mesh_client_model_send_msg(client_model, &ctx, opcode, length, data_ptr, MSG_TIMEOUT, require_response, message_role);
@@ -321,7 +329,7 @@ void broadcast_message(uint16_t length, uint8_t *data_ptr)
     ctx.net_idx = ble_mesh_key.net_idx;
     ctx.app_idx = ble_mesh_key.app_idx;
     ctx.addr = 0xFFFF;
-    ctx.send_ttl = MSG_SEND_TTL;
+    ctx.send_ttl = ble_message_ttl;
     
 
     err = esp_ble_mesh_client_model_send_msg(client_model, &ctx, opcode, length, data_ptr, MSG_TIMEOUT, false, message_role);
@@ -345,7 +353,7 @@ void send_connectivity(uint16_t dst_address, uint16_t length, uint8_t *data_ptr)
     ctx.net_idx = ble_mesh_key.net_idx;
     ctx.app_idx = ble_mesh_key.app_idx;
     ctx.addr = dst_address;
-    ctx.send_ttl = MSG_SEND_TTL;
+    ctx.send_ttl = ble_message_ttl;
     
     ESP_LOGI(TAG, "Trying to ping root\n");
 

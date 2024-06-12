@@ -19,10 +19,10 @@
 
 #define INIT_UUID_MATCH     { 0x32, 0x10 } // regulate the node get provitioned
 
-#define MSG_SEND_TTL        1 // 1 for testing
-#define MSG_TIMEOUT         0
-#define MSG_ROLE_ROOT       ROLE_PROVISIONER
-#define MSG_ROLE_EDGE       ROLE_NODE
+#define DEFAULT_MSG_SEND_TTL    3 // default value for message ttl, ttl changeable in runtime from command
+#define MSG_TIMEOUT             0
+#define MSG_ROLE_ROOT           ROLE_PROVISIONER
+#define MSG_ROLE_EDGE           ROLE_NODE
 // #define MSG_ROLE_EDGE       ROLE_NODE // ROLE_FAST_PROV // ROLE_NODE
 
 #define COMP_DATA_PAGE_0    0x00
@@ -40,7 +40,9 @@
 #define ECS_193_MODEL_OP_RESPONSE       ESP_BLE_MESH_MODEL_OP_3(0x02, ECS_193_CID)
 #define ECS_193_MODEL_OP_BROADCAST      ESP_BLE_MESH_MODEL_OP_3(0x03, ECS_193_CID)
 #define ECS_193_MODEL_OP_CONNECTIVITY   ESP_BLE_MESH_MODEL_OP_3(0x04, ECS_193_CID)
-#define ECS_193_MODEL_OP_EMPTY          ESP_BLE_MESH_MODEL_OP_3(0x05, ECS_193_CID)
+#define ECS_193_MODEL_OP_CONFIRM        ESP_BLE_MESH_MODEL_OP_3(0x05, ECS_193_CID)
+#define ECS_193_MODEL_OP_SET_TTL        ESP_BLE_MESH_MODEL_OP_3(0x06, ECS_193_CID)
+#define ECS_193_MODEL_OP_EMPTY          ESP_BLE_MESH_MODEL_OP_3(0x07, ECS_193_CID)
 
 #define NVS_KEY_ROOT "ECS_193_client"
 
