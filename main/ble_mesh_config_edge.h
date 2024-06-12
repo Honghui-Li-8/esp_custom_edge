@@ -22,6 +22,7 @@ enum State getNodeState();
 void setNodeState(enum State);
 void stop_esp_timer();
 void stop_periodic_timer();
+void set_message_ttl(uint8_t new_ttl);
 void send_message(uint16_t dst_address, uint16_t length, uint8_t *data_ptr, bool require_response);
 void broadcast_message(uint16_t length, uint8_t *data_ptr);
 void send_response(esp_ble_mesh_msg_ctx_t *ctx, uint16_t length, uint8_t *data_ptr);
