@@ -188,7 +188,7 @@ void local_edge_device_network_message_handler(uint16_t node_addr, uint8_t *data
 
     if (strncmp(opcode, "T", OPCODE_LEN) == 0)
     {
-        // is our Test opcode 'TST'
+        // is our Test opcode 'T'
         if (strncmp(payload, "I", 1) == 0)
         {
             char *test_name = payload + 1;
@@ -209,7 +209,7 @@ void local_edge_device_network_message_handler(uint16_t node_addr, uint8_t *data
             uint8_t *buf_itr = buffer;
 
             // message type
-            strncpy((char *)buf_itr, "C", OPCODE_LEN);
+            strncpy((char *)buf_itr, "A", OPCODE_LEN);
             buf_itr += OPCODE_LEN;
             
             ESP_LOGI(TAG_L, "send out: '%.*s'", buf_itr - buffer, buffer);
@@ -235,7 +235,7 @@ void local_edge_device_network_message_handler(uint16_t node_addr, uint8_t *data
         uint8_t *buf_itr = buffer;
 
         // message type
-        strncpy((char *)buf_itr, "C", OPCODE_LEN);
+        strncpy((char *)buf_itr, "A", OPCODE_LEN);
         buf_itr += OPCODE_LEN;
         memcpy(buf_itr, payload, length - OPCODE_LEN);
         buf_itr += length - OPCODE_LEN;
