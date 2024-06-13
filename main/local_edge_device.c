@@ -67,6 +67,9 @@ void sendtMultipleData_Example(int16_t *fake_gps)
     buf_itr += 1;
 
     // 1 byte size_n of data amount
+    buf_itr[0] = 0x02; // has 2 data
+    buf_itr += 1;
+
     // data type
     buf_itr[0] = 0x00; // sequence number
     buf_itr += 1;
@@ -88,6 +91,7 @@ void sendtMultipleData_Example(int16_t *fake_gps)
     buf_itr += 2;
 
     ble_send_to_root(buffer, buf_itr - buffer);
+    sequence_number += 1;
 }
 
 void sendData() {
