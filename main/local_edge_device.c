@@ -14,7 +14,6 @@
 
 esp_timer_handle_t data_send_timer;
 
-bool sending_data = false;
 uint64_t data_send_interval = 1000000; // 1 second
 bool running_test = false;
 bool sending_data = false;
@@ -94,7 +93,7 @@ void sendtMultipleData_Example(int16_t *fake_gps)
 void sendData() {
     static int16_t fake_gps = 333;
 
-    sendTestMultipleData(&fake_gps, &fake_ldc, &fake_idx);
+    sendtMultipleData_Example(&fake_gps);
 
     fake_gps += 3;
 }
