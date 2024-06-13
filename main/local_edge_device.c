@@ -191,10 +191,9 @@ void local_edge_device_network_message_handler(uint16_t node_addr, uint8_t *data
         if (strncmp(payload, "I", 1) == 0)
         {
             char *test_name = payload + 1;
-            if (strncmp(current_test, test_name, 1) == 0)
+            if (running_test)
             {
-                return; // already initialized
-            } else if (running_test) {
+                ESP_LOGI(TAG_L, "some test is running");
                 return; // running other test
             }
 
@@ -225,6 +224,7 @@ void local_edge_device_network_message_handler(uint16_t node_addr, uint8_t *data
     }
     else if ((strncmp(opcode, "S", OPCODE_LEN) == 0))
     {
+        ESP_LOGW(TAG_L, "Resetting");
         char ble_cmd[7] = "RST-E";
         dispatch_network_command(ble_cmd, 0, NULL, 0);
     }
