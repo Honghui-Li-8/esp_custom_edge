@@ -17,6 +17,7 @@ esp_timer_handle_t data_send_timer;
 bool sending_data = false;
 uint64_t data_send_interval = 1000000; // 1 second
 bool running_test = false;
+bool sending_data = false;
 
 extern void execute_network_command(char *command, size_t cmd_total_len);
 
@@ -54,29 +55,31 @@ void ble_send_to_root(uint8_t *data_buffer, size_t data_length)
     dispatch_network_command(ble_cmd, 0, data_buffer, data_length);
 }
 
-void sendTestMultipleData(int16_t *fake_gps, int16_t *fake_ldc, int8_t *fake_idx)
+void sendtMultipleData_Example(int16_t *fake_gps)
 {
-    // [D]|size_n|data_type|data_length_byte|data|...|data_type|data_length_byte|data|[E]
+    // Data update opcode | data_type_byte | data
+    // D | 0x00 | sequence_number_1_byte | 0x01 | GPS_6_bytes
+    static uint8_t sequence_number = 0;
     uint8_t buffer[MAX_MSG_LEN];
     uint8_t *buf_itr = buffer;
 
-    // message type
-    strncpy((char *)buf_itr, "[D]", 3);
-    buf_itr += 3;
+    // message type / opcode
+    strncpy((char *)buf_itr, "D", 1);
+    buf_itr += 1;
 
     // 1 byte size_n of data amount
-    buf_itr[0] = 0x03;
+    // data type
+    buf_itr[0] = 0x00; // sequence number
+    buf_itr += 1;
+    // data
+    buf_itr[0] = sequence_number;
     buf_itr += 1;
 
     // ------------ data ----------------
-    // data type - 3 byte
-    strncpy((char *)buf_itr, "GPS", 3);
-    buf_itr += 3;
-
-    // data len - 1 byte
-    buf_itr[0] = 0x06; // 6 byte GPS data
+    // data type
+    buf_itr[0] = 0x01; // sequence number
     buf_itr += 1;
-
+    
     // fake temp GPS Data - 6 byte
     memcpy(buf_itr, fake_gps, 2);
     buf_itr += 2;
@@ -85,64 +88,15 @@ void sendTestMultipleData(int16_t *fake_gps, int16_t *fake_ldc, int8_t *fake_idx
     memcpy(buf_itr, fake_gps, 2);
     buf_itr += 2;
 
-    // ------------ data ----------------
-    // data type - 3 byte
-    strncpy((char *)buf_itr, "LDC", 3);
-    buf_itr += 3;
-
-    // data len - 1 byte
-    buf_itr[0] = 0x02; // 2 byte GPS data
-    buf_itr += 1;
-
-    // fake temp LDC Data - 2 byte
-    memcpy(buf_itr, fake_ldc, 2);
-    buf_itr += 2;
-
-    // ------------ data ----------------
-    // data type - 3 byte
-    strncpy((char *)buf_itr, "IDX", 3);
-    buf_itr += 3;
-
-    // data len - 1 byte
-    buf_itr[0] = 0x01;
-    buf_itr += 1;
-
-    // fake temp Data - 1 byte
-    memcpy(buf_itr, fake_idx, 1);
-    buf_itr += 1;
-
-    // ------------ encode test \xfb data ----------------
-    // data type - 3 byte
-    strncpy((char *)buf_itr, "ESP", 3);
-    buf_itr += 3;
-
-    // data len - 1 byte
-    buf_itr[0] = 0x04;
-    buf_itr += 1;
-
-    // fake temp Data - 1 byte
-    buf_itr[0] = 0xfa;
-    buf_itr += 1;
-    buf_itr[0] = 0xfb;
-    buf_itr += 1;
-    buf_itr[0] = 0xfc;
-    buf_itr += 1;
-    buf_itr[0] = 0xfd;
-    buf_itr += 1;
-
     ble_send_to_root(buffer, buf_itr - buffer);
 }
 
 void sendData() {
     static int16_t fake_gps = 333;
-    static int16_t fake_ldc = 222;
-    static int8_t  fake_idx = 111;
 
     sendTestMultipleData(&fake_gps, &fake_ldc, &fake_idx);
 
     fake_gps += 3;
-    fake_ldc += 2;
-    fake_idx += 1;
 }
 
 void sendRobotRequest()
@@ -154,11 +108,10 @@ void sendRobotRequest()
     uint8_t *buf_itr = buffer;
 
     // message type
-    strncpy((char *)buf_itr, "REQ", 3);
-    buf_itr += 3;
-
-    // request type
     strncpy((char *)buf_itr, "R", 1);
+    buf_itr += 1;
+
+    buf_itr[0] = 0x00; // robot request
     buf_itr += 1;
 
     ble_send_to_root(buffer, buf_itr - buffer);
@@ -166,6 +119,10 @@ void sendRobotRequest()
 
 void create_data_send_event()
 {
+    if (sending_data == true) {
+        return;
+    }
+
     const esp_timer_create_args_t periodic_timer_args = {
         .callback = &sendData,
         // .callback = &periodic_timer_callback,
@@ -175,21 +132,31 @@ void create_data_send_event()
     ESP_ERROR_CHECK(esp_timer_create(&periodic_timer_args, &data_send_timer));
 
     ESP_ERROR_CHECK(esp_timer_start_periodic(data_send_timer, data_send_interval));
+    sending_data = true;
+}
+
+void stop_data_send_event() {
+    if (sending_data == false) {
+        return;
+    }
+    ESP_ERROR_CHECK(esp_timer_stop(data_send_timer));
+    sending_data = false;
 }
 
 void start_current_test(char* current_test) {
-    ESP_LOGI(TAG_L, "IS 'TST|S' test start");
+    ESP_LOGI(TAG_L, "IS 'T|S' test start");
     
-    if (strncmp(current_test, "TEST0", 5) == 0)
+    if (strncmp(current_test, "0", 1) == 0)
     {
+        // restart module
         char ble_cmd[7] = "RST-E";
         dispatch_network_command(ble_cmd, 0, NULL, 0);
     }
-    else if (strncmp(current_test, "DATA-", 5) == 0)
+    else if (strncmp(current_test, "D", 1) == 0)
     {
         create_data_send_event();
     }
-    else if (strncmp(current_test, "ROBOT", 5) == 0)
+    else if (strncmp(current_test, "R", 1) == 0)
     {
         // create_robot_request_event();
     }
@@ -203,12 +170,12 @@ void stop_current_test(char* current_test)
         return;
     }
 
-    // if (strncmp(current_test, "DATA-", 5) == 0)
-    // {
-    //     ESP_ERROR_CHECK(esp_timer_delete(data_send_timer));
-    // }
+    if (strncmp(current_test, "D", 5) == 0)
+    {
+        stop_data_send_event();
+    }
 
-    memcpy(current_test, "None-", 5);
+    memcpy(current_test, "---", 1);
     running_test = false;
 }
 
@@ -219,32 +186,32 @@ void local_edge_device_network_message_handler(uint16_t node_addr, uint8_t *data
 
     ESP_LOGI(TAG_L, "recived: %d bytes, opcode: '%.*s', payload: \'%.*s\', from node-%d", length, OPCODE_LEN, opcode, length - OPCODE_LEN, payload, node_addr);
 
-    if (strncmp(opcode, "TST", 3) == 0)
+    if (strncmp(opcode, "T", OPCODE_LEN) == 0)
     {
         // is our Test opcode 'TST'
         if (strncmp(payload, "I", 1) == 0)
         {
             char *test_name = payload + 1;
-            if (strncmp(current_test, test_name, 5) == 0)
+            if (strncmp(current_test, test_name, 1) == 0)
             {
                 return; // already initialized
             } else if (running_test) {
                 return; // running other test
             }
 
-            ESP_LOGI(TAG_L, "IS 'TST|I' test initialization");
-            memcpy(current_test, test_name, 5);
+            ESP_LOGI(TAG_L, "IS 'T|I' test initialization");
+            memcpy(current_test, test_name, 1);
+
             // Initialization of test ..................................
-            // Initialization of test ..................................
-            // Initialization of test ..................................
+            // Confirm ready for test ..................................
+
             uint8_t buffer[MAX_MSG_LEN];
             uint8_t *buf_itr = buffer;
 
             // message type
-            strncpy((char *)buf_itr, "CPY", 3);
-            buf_itr += 3;
-            // memcpy(buf_itr, payload, length - 3); // don't confirm testname
-            // buf_itr += length - 3;
+            strncpy((char *)buf_itr, "C", OPCODE_LEN);
+            buf_itr += OPCODE_LEN;
+            
             ESP_LOGI(TAG_L, "send out: '%.*s'", buf_itr - buffer, buffer);
             ble_send_to_root(buffer, buf_itr - buffer);
         }
@@ -252,26 +219,26 @@ void local_edge_device_network_message_handler(uint16_t node_addr, uint8_t *data
         {
             start_current_test(current_test);
         }
-        // else if (strncmp(payload, "F", 1) == 0)
-        // {
-        //     stop_current_test(current_test);
-        // }
+        else if (strncmp(payload, "F", 1) == 0)
+        {
+            stop_current_test(current_test);
+        }
     }
-    else if ((strncmp(opcode, "RST", 3) == 0))
+    else if ((strncmp(opcode, "S", OPCODE_LEN) == 0))
     {
         char ble_cmd[7] = "RST-E";
         dispatch_network_command(ble_cmd, 0, NULL, 0);
     }
-    else if (strncmp(opcode, "ECH", 3) == 0)
+    else if (strncmp(opcode, "E", OPCODE_LEN) == 0)
     {
         uint8_t buffer[MAX_MSG_LEN];
         uint8_t *buf_itr = buffer;
 
         // message type
-        strncpy((char *)buf_itr, "CPY", 3);
-        buf_itr += 3;
-        memcpy(buf_itr, payload, length - 3);
-        buf_itr += length - 3;
+        strncpy((char *)buf_itr, "C", OPCODE_LEN);
+        buf_itr += OPCODE_LEN;
+        memcpy(buf_itr, payload, length - OPCODE_LEN);
+        buf_itr += length - OPCODE_LEN;
         ESP_LOGI(TAG_L, "send out: '%.*s'", buf_itr - buffer, buffer);
         ble_send_to_root(buffer, buf_itr - buffer);
         

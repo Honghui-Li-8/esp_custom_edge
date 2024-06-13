@@ -23,6 +23,9 @@
 
 extern void send_message(uint16_t dst_address, uint16_t length, uint8_t *data_ptr, bool require_response);
 extern void printNetworkInfo();
+extern void create_data_send_event();
+extern void stop_data_send_event();
+extern void sendRobotRequest();
 
 clock_t start_time;
 bool timeout = false;
@@ -112,43 +115,30 @@ void board_ble_send_to_root(uint8_t *data_buffer, size_t data_length)
 
 static void button_tap_cb(void* arg)
 {
-    ESP_LOGW(TAG_W, "button pressed ------------------------- ");
-
-    ESP_LOGW(TAG_W, "sending------");
-    static int control = 0;
-
-    if (control == 0) {
-        char data[20] = "[M] Hello";
-        send_message(PROV_OWN_ADDR, strlen(data), (uint8_t *)data, false);
-        control = 1;
-    } else {
-        char data[20] = "[D]GPS6------";
-        data[3] = (char) 0x06; // 6 byte GPS data
-
-        send_message(PROV_OWN_ADDR, strlen(data), (uint8_t *)data, false);
-        control = 0;
-    }
-
-    ESP_LOGW(TAG_W, "sended-------");
-
+    ESP_LOGW(TAG_W, "button taped ------------------------- ");
+    ESP_LOGW(TAG_W, "sending robot reqyest------");
+    sendRobotRequest();
 }
 
 static void button_liong_press_cb(void *arg)
 {
     ESP_LOGW(TAG_W, "button long pressed ------------------------- ");
-    ESP_LOGW(TAG_W, "sending robot reqyest------");
-    uint8_t buffer[10];
-    uint8_t *buf_itr = buffer;
+    ESP_LOGW(TAG_W, "toggling data sending ------");
+    static int control = 0;
 
-    // message type
-    strncpy((char *)buf_itr, "REQ", 3);
-    buf_itr += 3;
-
-    // request type
-    strncpy((char *)buf_itr, "R", 1);
-    buf_itr += 1;
-
-    board_ble_send_to_root(buffer, buf_itr - buffer);
+    if (control == 0) {
+        ESP_LOGW(TAG_W, "clear data sending ------");
+        stop_data_send_event();
+        control = 1;
+    } else if (control == 1) {
+        ESP_LOGW(TAG_W, "create data sending ------");
+        create_data_send_event();
+        control = 2;
+    } else {
+        ESP_LOGW(TAG_W, "clear data sending ------");
+        stop_data_send_event();
+        control = 0;
+    }
 }
 
 static void board_button_init(void)

@@ -1,7 +1,7 @@
 #ifndef NETCONFIG_H
 #define NETCONFIG_H
 
-#define OPCODE_LEN 3
+#define OPCODE_LEN 1
 #define NODE_ADDR_LEN 2  // can't change bc is base on esp
 #define NODE_UUID_LEN 16 // can't change bc is base on esp
 #define CMD_LEN 5        // network command length - 5 byte
