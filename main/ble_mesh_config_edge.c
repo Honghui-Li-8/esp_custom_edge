@@ -23,6 +23,7 @@ esp_timer_handle_t periodic_timer;
 esp_timer_handle_t oneshot_timer;
 
 bool periodic_timer_start = false;
+static uint8_t** data_list = NULL;
 
 static uint8_t dev_uuid[ESP_BLE_MESH_OCTET16_LEN] = INIT_UUID_MATCH;
 static struct esp_ble_mesh_key {
@@ -328,6 +329,25 @@ void send_message(uint16_t dst_address, uint16_t length, uint8_t *data_ptr, bool
         return;
     }
     
+}
+
+void send_important_message(uint16_t dst_address, uint16_t length, uint8_t *data_ptr) {
+    int index = -1;
+    
+    for (int i=0; i<5; i++) {
+        if (data_list[i] == NULL) {
+            index = i;
+            break;
+        }
+    }
+
+    if (index == -1) {
+        ESP_LOGW(TAG, "Too many on tracking important message, failed to add one more");
+        return;
+    }
+
+    // send message
+
 }
 
 void broadcast_message(uint16_t length, uint8_t *data_ptr)
@@ -733,6 +753,13 @@ esp_err_t esp_module_edge_init(
     };
     ESP_ERROR_CHECK(esp_timer_create(&oneshot_timer_args, &oneshot_timer));
     ESP_ERROR_CHECK(esp_timer_start_once(oneshot_timer, 3000000));
+
+    if (data_list == NULL) {
+        data_list = (uint8_t**) malloc(5 * sizeof(uint8_t*));
+        for (int i=0; i<5; i++) {
+            data_list[i] = NULL;
+        }
+    }
 
     return ESP_OK;
 }
