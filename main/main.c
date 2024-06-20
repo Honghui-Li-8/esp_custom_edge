@@ -71,8 +71,6 @@ static void recv_response_handler(esp_ble_mesh_msg_ctx_t *ctx, uint16_t length, 
 static void timeout_handler(esp_ble_mesh_msg_ctx_t *ctx, uint32_t opcode) {
     ESP_LOGI(TAG_M, " ----------- timeout handler trigered -----------");
     
-    setNodeState(CONNECTED); //Finish send command
-    
     // Print the current value of timeout
     bool currentTimeout = getTimeout();
     ESP_LOGI(TAG_M, " Current timeout value: %s", currentTimeout ? "true" : "false");

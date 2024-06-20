@@ -24,6 +24,7 @@ esp_timer_handle_t oneshot_timer;
 
 bool periodic_timer_start = false;
 static uint8_t** important_message_data_list = NULL;
+static uint16_t important_message_data_lengths[] = {0, 0, 0};
 
 static uint8_t dev_uuid[ESP_BLE_MESH_OCTET16_LEN] = INIT_UUID_MATCH;
 static struct esp_ble_mesh_key {
@@ -384,8 +385,20 @@ void send_important_message(uint16_t dst_address, uint16_t length, uint8_t *data
         return;
     }
 
+    // save the important message incase of need for resend
+    important_message_data_lengths[index] = length;
+    important_message_data_list[index] = (uint8_t*) malloc(length * sizeof(uint8_t));
+    if (important_message_data_list[index] == NULL) {
+        ESP_LOGW(TAG, "Failed to allocate [&d] bytes for important messasge", length);
+        return;
+    }
+    memcpy(important_message_data_list[index], data_ptr, length);
+
     setNodeState(WORKING);
-    err = esp_ble_mesh_client_model_send_msg(client_model, &ctx, opcode, length, data_ptr, MSG_TIMEOUT, true, message_role);
+    err = esp_ble_mesh_client_model_send_msg(client_model, &ctx, opcode, 
+        important_message_data_lengths[index], important_message_data_list[index], 
+        MSG_TIMEOUT, true, message_role);
+    
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "Failed to send important message to node addr 0x%04x, err_code %d", dst_address, err);
         return;
