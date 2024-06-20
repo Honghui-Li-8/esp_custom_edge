@@ -68,6 +68,10 @@ static void recv_response_handler(esp_ble_mesh_msg_ctx_t *ctx, uint16_t length, 
     // stop_timer();
 }
 
+static void retransmit_message() {
+
+}
+
 static void timeout_handler(esp_ble_mesh_msg_ctx_t *ctx, uint32_t opcode) {
     ESP_LOGI(TAG_M, " ----------- timeout handler trigered -----------");
     
@@ -88,6 +92,21 @@ static void timeout_handler(esp_ble_mesh_msg_ctx_t *ctx, uint32_t opcode) {
         reset_edge();
         // reset_esp32();
     }
+
+    // important_message_data_list[index] = (uint8_t*) malloc(length * sizeof(uint8_t));
+    // important_message_data_lengths[index] = length;
+    // important_message_transmit_time[index] = 0;
+    uint8_t index = -1;
+    if (opcode == ECS_193_MODEL_OP_MESSAGE_I_0) {
+        index = 0;
+    } else if (opcode == ECS_193_MODEL_OP_MESSAGE_I_1) {
+        index = 1;
+    } else if (opcode == ECS_193_MODEL_OP_MESSAGE_I_2) {
+        index = 2;
+    }
+
+    uint8_t* data_ptr 
+
 }
 
 //Create a new handler to handle broadcasting

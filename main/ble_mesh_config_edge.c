@@ -25,6 +25,7 @@ esp_timer_handle_t oneshot_timer;
 bool periodic_timer_start = false;
 static uint8_t** important_message_data_list = NULL;
 static uint16_t important_message_data_lengths[] = {0, 0, 0};
+static uint8_t important_message_transmit_time[] = {0, 0, 0};
 
 static uint8_t dev_uuid[ESP_BLE_MESH_OCTET16_LEN] = INIT_UUID_MATCH;
 static struct esp_ble_mesh_key {
@@ -386,8 +387,10 @@ void send_important_message(uint16_t dst_address, uint16_t length, uint8_t *data
     }
 
     // save the important message incase of need for resend
-    important_message_data_lengths[index] = length;
     important_message_data_list[index] = (uint8_t*) malloc(length * sizeof(uint8_t));
+    important_message_data_lengths[index] = length;
+    important_message_transmit_time[index] = 0;
+    
     if (important_message_data_list[index] == NULL) {
         ESP_LOGW(TAG, "Failed to allocate [&d] bytes for important messasge", length);
         return;
@@ -815,6 +818,7 @@ esp_err_t esp_module_edge_init(
         important_message_data_list = (uint8_t**) malloc(3 * sizeof(uint8_t*));
         for (int i=0; i<3; i++) {
             important_message_data_list[i] = NULL;
+            important_message_transmit_time[i] = 0;
         }
     }
 
