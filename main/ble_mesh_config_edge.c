@@ -23,7 +23,7 @@ esp_timer_handle_t periodic_timer;
 esp_timer_handle_t oneshot_timer;
 
 bool periodic_timer_start = false;
-static uint8_t** data_list = NULL;
+static uint8_t** important_message_data_list = NULL;
 
 static uint8_t dev_uuid[ESP_BLE_MESH_OCTET16_LEN] = INIT_UUID_MATCH;
 static struct esp_ble_mesh_key {
@@ -81,11 +81,12 @@ static esp_ble_mesh_model_t root_models[] = {
 static const esp_ble_mesh_client_op_pair_t client_op_pair[] = {
     {ECS_193_MODEL_OP_MESSAGE, ECS_193_MODEL_OP_EMPTY},
     {ECS_193_MODEL_OP_MESSAGE_R, ECS_193_MODEL_OP_RESPONSE},
+    {ECS_193_MODEL_OP_MESSAGE_I_0, ECS_193_MODEL_OP_RESPONSE_I_0},
     {ECS_193_MODEL_OP_MESSAGE_I_1, ECS_193_MODEL_OP_RESPONSE_I_1},
     {ECS_193_MODEL_OP_MESSAGE_I_2, ECS_193_MODEL_OP_RESPONSE_I_2},
-    {ECS_193_MODEL_OP_MESSAGE_I_3, ECS_193_MODEL_OP_RESPONSE_I_3},
     {ECS_193_MODEL_OP_BROADCAST, ECS_193_MODEL_OP_EMPTY},
     {ECS_193_MODEL_OP_CONNECTIVITY, ECS_193_MODEL_OP_RESPONSE},
+    {ECS_193_MODEL_OP_SET_TTL, ECS_193_MODEL_OP_EMPTY},
 };
 
 static esp_ble_mesh_client_t ecs_193_client = {
@@ -95,18 +96,18 @@ static esp_ble_mesh_client_t ecs_193_client = {
 
 static esp_ble_mesh_model_op_t client_op[] = { // operation client will "RECEIVED"
     ESP_BLE_MESH_MODEL_OP(ECS_193_MODEL_OP_RESPONSE, 1),
+    ESP_BLE_MESH_MODEL_OP(ECS_193_MODEL_OP_RESPONSE_I_0, 1),
     ESP_BLE_MESH_MODEL_OP(ECS_193_MODEL_OP_RESPONSE_I_1, 1),
     ESP_BLE_MESH_MODEL_OP(ECS_193_MODEL_OP_RESPONSE_I_2, 1),
-    ESP_BLE_MESH_MODEL_OP(ECS_193_MODEL_OP_RESPONSE_I_3, 1),
     ESP_BLE_MESH_MODEL_OP_END,
 };
 
 static esp_ble_mesh_model_op_t server_op[] = { // operation server will "RECEIVED"
     ESP_BLE_MESH_MODEL_OP(ECS_193_MODEL_OP_MESSAGE, 1),
     ESP_BLE_MESH_MODEL_OP(ECS_193_MODEL_OP_MESSAGE_R, 1),
+    ESP_BLE_MESH_MODEL_OP(ECS_193_MODEL_OP_MESSAGE_I_0, 1),
     ESP_BLE_MESH_MODEL_OP(ECS_193_MODEL_OP_MESSAGE_I_1, 1),
     ESP_BLE_MESH_MODEL_OP(ECS_193_MODEL_OP_MESSAGE_I_2, 1),
-    ESP_BLE_MESH_MODEL_OP(ECS_193_MODEL_OP_MESSAGE_I_3, 1),
     ESP_BLE_MESH_MODEL_OP(ECS_193_MODEL_OP_BROADCAST, 1),
     ESP_BLE_MESH_MODEL_OP(ECS_193_MODEL_OP_CONNECTIVITY, 1),
     ESP_BLE_MESH_MODEL_OP(ECS_193_MODEL_OP_SET_TTL, 1), // edge will recive set ttl from root
@@ -346,7 +347,7 @@ void send_important_message(uint16_t dst_address, uint16_t length, uint8_t *data
     int index = -1;
     
     for (int i=0; i<3; i++) {
-        if (data_list[i] == NULL) {
+        if (important_message_data_list[i] == NULL) {
             index = i;
             break;
         }
@@ -358,6 +359,38 @@ void send_important_message(uint16_t dst_address, uint16_t length, uint8_t *data
     }
 
     // send message
+    esp_ble_mesh_msg_ctx_t ctx = {0};
+    uint32_t opcode = ECS_193_MODEL_OP_MESSAGE;
+    esp_ble_mesh_dev_role_t message_role = MSG_ROLE;
+    esp_err_t err = ESP_OK;
+
+    // ESP_LOGW(TAG, "net_idx: %" PRIu16, ble_mesh_key.net_idx);
+    // ESP_LOGW(TAG, "app_idx: %" PRIu16, ble_mesh_key.app_idx);
+    // ESP_LOGW(TAG, "dst_address: %" PRIu16, dst_address);
+
+    ctx.net_idx = ble_mesh_key.net_idx;
+    ctx.app_idx = ble_mesh_key.app_idx;
+    ctx.addr = dst_address;
+    ctx.send_ttl = ble_message_ttl;
+    
+    if (index == 0) {
+        opcode = ECS_193_MODEL_OP_MESSAGE_I_0;
+    } else if (index == 1) {
+        opcode = ECS_193_MODEL_OP_MESSAGE_I_1;
+    } else if (index == 2) {
+        opcode = ECS_193_MODEL_OP_MESSAGE_I_2;
+    } else {
+        ESP_LOGW(TAG, "Error Index: [&d] for important messasge", index);
+        return;
+    }
+
+    setNodeState(WORKING);
+    err = esp_ble_mesh_client_model_send_msg(client_model, &ctx, opcode, length, data_ptr, MSG_TIMEOUT, true, message_role);
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to send important message to node addr 0x%04x, err_code %d", dst_address, err);
+        return;
+    }
+    
 
 }
 
@@ -765,10 +798,10 @@ esp_err_t esp_module_edge_init(
     ESP_ERROR_CHECK(esp_timer_create(&oneshot_timer_args, &oneshot_timer));
     ESP_ERROR_CHECK(esp_timer_start_once(oneshot_timer, 3000000));
 
-    if (data_list == NULL) {
-        data_list = (uint8_t**) malloc(3 * sizeof(uint8_t*));
+    if (important_message_data_list == NULL) {
+        important_message_data_list = (uint8_t**) malloc(3 * sizeof(uint8_t*));
         for (int i=0; i<3; i++) {
-            data_list[i] = NULL;
+            important_message_data_list[i] = NULL;
         }
     }
 
