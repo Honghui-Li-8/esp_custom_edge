@@ -79,7 +79,11 @@ static esp_ble_mesh_model_t root_models[] = {
 };
 
 static const esp_ble_mesh_client_op_pair_t client_op_pair[] = {
-    {ECS_193_MODEL_OP_MESSAGE, ECS_193_MODEL_OP_RESPONSE},
+    {ECS_193_MODEL_OP_MESSAGE, ECS_193_MODEL_OP_EMPTY},
+    {ECS_193_MODEL_OP_MESSAGE_R, ECS_193_MODEL_OP_RESPONSE},
+    {ECS_193_MODEL_OP_MESSAGE_I_1, ECS_193_MODEL_OP_RESPONSE},
+    {ECS_193_MODEL_OP_MESSAGE_I_2, ECS_193_MODEL_OP_RESPONSE},
+    {ECS_193_MODEL_OP_MESSAGE_I_3, ECS_193_MODEL_OP_RESPONSE},
     {ECS_193_MODEL_OP_BROADCAST, ECS_193_MODEL_OP_EMPTY},
     {ECS_193_MODEL_OP_CONNECTIVITY, ECS_193_MODEL_OP_RESPONSE},
 };
@@ -96,6 +100,10 @@ static esp_ble_mesh_model_op_t client_op[] = { // operation client will "RECEIVE
 
 static esp_ble_mesh_model_op_t server_op[] = { // operation server will "RECEIVED"
     ESP_BLE_MESH_MODEL_OP(ECS_193_MODEL_OP_MESSAGE, 1),
+    ESP_BLE_MESH_MODEL_OP(ECS_193_MODEL_OP_MESSAGE_R, 1),
+    ESP_BLE_MESH_MODEL_OP(ECS_193_MODEL_OP_MESSAGE_I_1, 1),
+    ESP_BLE_MESH_MODEL_OP(ECS_193_MODEL_OP_MESSAGE_I_2, 1),
+    ESP_BLE_MESH_MODEL_OP(ECS_193_MODEL_OP_MESSAGE_I_3, 1),
     ESP_BLE_MESH_MODEL_OP(ECS_193_MODEL_OP_BROADCAST, 1),
     ESP_BLE_MESH_MODEL_OP(ECS_193_MODEL_OP_CONNECTIVITY, 1),
     ESP_BLE_MESH_MODEL_OP(ECS_193_MODEL_OP_SET_TTL, 1), // edge will recive set ttl from root
@@ -334,7 +342,7 @@ void send_message(uint16_t dst_address, uint16_t length, uint8_t *data_ptr, bool
 void send_important_message(uint16_t dst_address, uint16_t length, uint8_t *data_ptr) {
     int index = -1;
     
-    for (int i=0; i<5; i++) {
+    for (int i=0; i<3; i++) {
         if (data_list[i] == NULL) {
             index = i;
             break;
@@ -755,8 +763,8 @@ esp_err_t esp_module_edge_init(
     ESP_ERROR_CHECK(esp_timer_start_once(oneshot_timer, 3000000));
 
     if (data_list == NULL) {
-        data_list = (uint8_t**) malloc(5 * sizeof(uint8_t*));
-        for (int i=0; i<5; i++) {
+        data_list = (uint8_t**) malloc(3 * sizeof(uint8_t*));
+        for (int i=0; i<3; i++) {
             data_list[i] = NULL;
         }
     }
