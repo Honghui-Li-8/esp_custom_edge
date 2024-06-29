@@ -25,7 +25,7 @@ esp_timer_handle_t oneshot_timer;
 bool periodic_timer_start = false;
 static uint8_t** important_message_data_list = NULL;
 static uint16_t important_message_data_lengths[] = {0, 0, 0};
-static uint8_t important_message_transmit_time[] = {0, 0, 0};
+static uint8_t important_message_retransmit_times[] = {0, 0, 0};
 
 static uint8_t dev_uuid[ESP_BLE_MESH_OCTET16_LEN] = INIT_UUID_MATCH;
 static struct esp_ble_mesh_key {
@@ -366,10 +366,6 @@ void send_important_message(uint16_t dst_address, uint16_t length, uint8_t *data
     esp_ble_mesh_dev_role_t message_role = MSG_ROLE;
     esp_err_t err = ESP_OK;
 
-    // ESP_LOGW(TAG, "net_idx: %" PRIu16, ble_mesh_key.net_idx);
-    // ESP_LOGW(TAG, "app_idx: %" PRIu16, ble_mesh_key.app_idx);
-    // ESP_LOGW(TAG, "dst_address: %" PRIu16, dst_address);
-
     ctx.net_idx = ble_mesh_key.net_idx;
     ctx.app_idx = ble_mesh_key.app_idx;
     ctx.addr = dst_address;
@@ -389,7 +385,7 @@ void send_important_message(uint16_t dst_address, uint16_t length, uint8_t *data
     // save the important message incase of need for resend
     important_message_data_list[index] = (uint8_t*) malloc(length * sizeof(uint8_t));
     important_message_data_lengths[index] = length;
-    important_message_transmit_time[index] = 0;
+    important_message_retransmit_times[index] = 0;
     
     if (important_message_data_list[index] == NULL) {
         ESP_LOGW(TAG, "Failed to allocate [&d] bytes for important messasge", length);
@@ -406,8 +402,65 @@ void send_important_message(uint16_t dst_address, uint16_t length, uint8_t *data
         ESP_LOGE(TAG, "Failed to send important message to node addr 0x%04x, err_code %d", dst_address, err);
         return;
     }
-    
+}
 
+int8_t get_important_message_index(uint32_t opcode) {
+    int8_t index = -1;
+    if (opcode == ECS_193_MODEL_OP_MESSAGE_I_0) {
+        index = 0;
+    } else if (opcode == ECS_193_MODEL_OP_MESSAGE_I_1) {
+        index = 1;
+    } else if (opcode == ECS_193_MODEL_OP_MESSAGE_I_2) {
+        index = 2;
+    }
+
+    return index;
+}
+
+// important_message_data_list[index] = (uint8_t*) malloc(length * sizeof(uint8_t));
+// important_message_data_lengths[index] = length;
+// important_message_retransmit_times[index] = 0;
+
+void retransmit_important_message(esp_ble_mesh_msg_ctx_t ctx, uint32_t opcode, uint8_t index) {
+    important_message_retransmit_times[index] += 1; // increment retransmit times count
+
+    if (important_message_retransmit_times[index] > 3) {
+        ESP_LOGW(TAG, "Error Index: [&d] for retransmiting important messasge", index);
+    }
+
+    // retransmit message
+    setNodeState(WORKING);
+    uint8_t tll_increment = important_message_retransmit_times[index] / 2; // add 1 more ttl per 2 times retransmit to limit ttl
+    ctx.send_ttl = ble_message_ttl + tll_increment;
+
+    esp_err_t err = ESP_OK;
+    err = esp_ble_mesh_client_model_send_msg(client_model, &ctx, opcode, 
+        important_message_data_lengths[index], important_message_data_list[index], 
+        MSG_TIMEOUT, true, MSG_ROLE);
+    
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to retransmit important message to node addr 0x%04x, err_code %d", ctx.addr, err);
+        ESP_LOGI(TAG, "clearing important_message, index: %d", index);
+        clear_important_message(index);
+        return;
+    }
+}
+
+void clear_important_message(uint8_t index) {
+    if (index < 0 || index > 2) {
+        ESP_LOGE(TAG, "Invaild index recived in clear_important_message(), index: %d", index);
+        return;
+    } else if (important_message_data_list[index] == NULL) {
+        ESP_LOGE(TAG, "Clearning an unused important message slot, index: %d", index);
+        return;
+    }
+
+    free(important_message_data_list[index]);
+
+    important_message_data_list[index] = NULL;
+    important_message_data_lengths[index] = 0;
+    important_message_retransmit_times[index] = 0;
+    ESP_LOGI(TAG, "Important_message slot cleared, index: %d", index);
 }
 
 void broadcast_message(uint16_t length, uint8_t *data_ptr)
@@ -818,7 +871,7 @@ esp_err_t esp_module_edge_init(
         important_message_data_list = (uint8_t**) malloc(3 * sizeof(uint8_t*));
         for (int i=0; i<3; i++) {
             important_message_data_list[i] = NULL;
-            important_message_transmit_time[i] = 0;
+            important_message_retransmit_times[i] = 0;
         }
     }
 

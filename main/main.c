@@ -59,6 +59,7 @@ static void recv_message_handler(esp_ble_mesh_msg_ctx_t *ctx, uint16_t length, u
     ESP_LOGW(TAG_M, "<- Sended Response %d bytes \'%*s\'", response_length, response_length, (char *)response);
 }
 
+
 static void recv_response_handler(esp_ble_mesh_msg_ctx_t *ctx, uint16_t length, uint8_t *msg_ptr, uint32_t opcode) {
     // ESP_LOGI(TAG_M, " ----------- recv_response handler trigered -----------");
     ESP_LOGW(TAG_M, "-> Received Response %d bytes [%*s]\n", length , length, (char *)msg_ptr);
@@ -66,10 +67,14 @@ static void recv_response_handler(esp_ble_mesh_msg_ctx_t *ctx, uint16_t length, 
     // message went through, clear edge reset timeout
     setTimeout(false);
     // stop_timer();
-}
 
-static void retransmit_message() {
-
+    // clear confirmed recived important message
+    int8_t index = get_important_message_index(opcode);
+    if (index != -1) {
+        // resend the important message
+        ESP_LOGW(TAG, "Confirm delivered on Important Message, index: %d", index);
+        clear_important_message(index);
+    }
 }
 
 static void timeout_handler(esp_ble_mesh_msg_ctx_t *ctx, uint32_t opcode) {
@@ -93,20 +98,11 @@ static void timeout_handler(esp_ble_mesh_msg_ctx_t *ctx, uint32_t opcode) {
         // reset_esp32();
     }
 
-    // important_message_data_list[index] = (uint8_t*) malloc(length * sizeof(uint8_t));
-    // important_message_data_lengths[index] = length;
-    // important_message_transmit_time[index] = 0;
-    uint8_t index = -1;
-    if (opcode == ECS_193_MODEL_OP_MESSAGE_I_0) {
-        index = 0;
-    } else if (opcode == ECS_193_MODEL_OP_MESSAGE_I_1) {
-        index = 1;
-    } else if (opcode == ECS_193_MODEL_OP_MESSAGE_I_2) {
-        index = 2;
+    int8_t index = get_important_message_index(opcode);
+    if (index != -1) {
+        // resend the important message
+        retransmit_important_message(index);
     }
-
-    uint8_t* data_ptr 
-
 }
 
 //Create a new handler to handle broadcasting
