@@ -376,7 +376,7 @@ void send_important_message(uint16_t dst_address, uint16_t length, uint8_t *data
     } else if (index == 2) {
         opcode = ECS_193_MODEL_OP_MESSAGE_I_2;
     } else {
-        ESP_LOGW(TAG, "Error Index: [&d] for important messasge", index);
+        ESP_LOGW(TAG, "Error Index: [%d] for important messasge", index);
         return;
     }
 
@@ -386,7 +386,7 @@ void send_important_message(uint16_t dst_address, uint16_t length, uint8_t *data
     important_message_retransmit_times[index] = 0;
     
     if (important_message_data_list[index] == NULL) {
-        ESP_LOGW(TAG, "Failed to allocate [&d] bytes for important messasge", length);
+        ESP_LOGW(TAG, "Failed to allocate [%d] bytes for important messasge", length);
         return;
     }
     memcpy(important_message_data_list[index], data_ptr, length);
