@@ -270,13 +270,27 @@ static void ble_mesh_custom_model_cb(esp_ble_mesh_model_cb_event_t event, esp_bl
 
     switch (event) {
     case ESP_BLE_MESH_MODEL_OPERATION_EVT:
-        if (param->model_operation.opcode == ECS_193_MODEL_OP_MESSAGE) {
-            recv_message_handler_cb(param->model_operation.ctx, param->model_operation.length, param->model_operation.msg, param->model_operation.opcode);
-        } else if (param->model_operation.opcode == ECS_193_MODEL_OP_MESSAGE_R) {
-            recv_message_handler_cb(param->model_operation.ctx, param->model_operation.length, param->model_operation.msg, param->model_operation.opcode);
-        } else if (param->model_operation.opcode == ECS_193_MODEL_OP_RESPONSE) {
-            recv_response_handler_cb(param->model_operation.ctx, param->model_operation.length, param->model_operation.msg, param->model_operation.opcode);
-        } else if (param->model_operation.opcode == ECS_193_MODEL_OP_BROADCAST) {
+        switch (param->model_operation.opcode) {
+            case ECS_193_MODEL_OP_MESSAGE:
+            case ECS_193_MODEL_OP_MESSAGE_R:
+            case ECS_193_MODEL_OP_MESSAGE_I_0:
+            case ECS_193_MODEL_OP_MESSAGE_I_1:
+            case ECS_193_MODEL_OP_MESSAGE_I_2:
+                recv_message_handler_cb(param->model_operation.ctx, param->model_operation.length, param->model_operation.msg, param->model_operation.opcode);
+                break;
+
+            case ECS_193_MODEL_OP_RESPONSE:
+            case ECS_193_MODEL_OP_RESPONSE_I_0:
+            case ECS_193_MODEL_OP_RESPONSE_I_1:
+            case ECS_193_MODEL_OP_RESPONSE_I_2:
+                recv_response_handler_cb(param->model_operation.ctx, param->model_operation.length, param->model_operation.msg, param->model_operation.opcode);
+                break;
+            
+            default:
+                break;
+        }     
+
+        if (param->model_operation.opcode == ECS_193_MODEL_OP_BROADCAST) {
             broadcast_handler_cb(param->model_operation.ctx, param->model_operation.length, param->model_operation.msg);
         } else if (param->model_operation.opcode == ECS_193_MODEL_OP_CONNECTIVITY) {
             connectivity_handler_cb(param->model_operation.ctx, param->model_operation.length, param->model_operation.msg);
