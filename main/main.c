@@ -72,7 +72,7 @@ static void recv_response_handler(esp_ble_mesh_msg_ctx_t *ctx, uint16_t length, 
     int8_t index = get_important_message_index(opcode);
     if (index != -1) {
         // resend the important message
-        ESP_LOGW(TAG, "Confirm delivered on Important Message, index: %d", index);
+        ESP_LOGW(TAG_M, "Confirm delivered on Important Message, index: %d", index);
         clear_important_message(index);
     }
 }
@@ -101,7 +101,7 @@ static void timeout_handler(esp_ble_mesh_msg_ctx_t *ctx, uint32_t opcode) {
     int8_t index = get_important_message_index(opcode);
     if (index != -1) {
         // resend the important message
-        retransmit_important_message(index);
+        retransmit_important_message(ctx, opcode, index);
     }
 }
 

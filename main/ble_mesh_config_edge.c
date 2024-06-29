@@ -271,13 +271,11 @@ static void ble_mesh_custom_model_cb(esp_ble_mesh_model_cb_event_t event, esp_bl
     switch (event) {
     case ESP_BLE_MESH_MODEL_OPERATION_EVT:
         if (param->model_operation.opcode == ECS_193_MODEL_OP_MESSAGE) {
-            recv_message_handler_cb(param->model_operation.ctx, param->model_operation.length
-                                , param->model_operation.msg, param->model_operation.opcode);
+            recv_message_handler_cb(param->model_operation.ctx, param->model_operation.length, param->model_operation.msg, param->model_operation.opcode);
         } else if (param->model_operation.opcode == ECS_193_MODEL_OP_MESSAGE_R) {
-            recv_message_handler_cb(param->model_operation.ctx, param->model_operation.length
-                                , param->model_operation.msg, param->model_operation.opcode);
+            recv_message_handler_cb(param->model_operation.ctx, param->model_operation.length, param->model_operation.msg, param->model_operation.opcode);
         } else if (param->model_operation.opcode == ECS_193_MODEL_OP_RESPONSE) {
-            recv_response_handler_cb(param->model_operation.ctx, param->model_operation.length, param->model_operation.msg);
+            recv_response_handler_cb(param->model_operation.ctx, param->model_operation.length, param->model_operation.msg, param->model_operation.opcode);
         } else if (param->model_operation.opcode == ECS_193_MODEL_OP_BROADCAST) {
             broadcast_handler_cb(param->model_operation.ctx, param->model_operation.length, param->model_operation.msg);
         } else if (param->model_operation.opcode == ECS_193_MODEL_OP_CONNECTIVITY) {
@@ -421,32 +419,32 @@ int8_t get_important_message_index(uint32_t opcode) {
 // important_message_data_lengths[index] = length;
 // important_message_retransmit_times[index] = 0;
 
-void retransmit_important_message(esp_ble_mesh_msg_ctx_t ctx, uint32_t opcode, uint8_t index) {
+void retransmit_important_message(esp_ble_mesh_msg_ctx_t* ctx_ptr, uint32_t opcode, int8_t index) {
     important_message_retransmit_times[index] += 1; // increment retransmit times count
 
     if (important_message_retransmit_times[index] > 3) {
-        ESP_LOGW(TAG, "Error Index: [&d] for retransmiting important messasge", index);
+        ESP_LOGW(TAG, "Error Index: [%d] for retransmiting important messasge", index);
     }
 
     // retransmit message
     setNodeState(WORKING);
     uint8_t tll_increment = important_message_retransmit_times[index] / 2; // add 1 more ttl per 2 times retransmit to limit ttl
-    ctx.send_ttl = ble_message_ttl + tll_increment;
+    ctx_ptr->send_ttl = ble_message_ttl + tll_increment;
 
     esp_err_t err = ESP_OK;
-    err = esp_ble_mesh_client_model_send_msg(client_model, &ctx, opcode, 
+    err = esp_ble_mesh_client_model_send_msg(client_model, ctx_ptr, opcode, 
         important_message_data_lengths[index], important_message_data_list[index], 
         MSG_TIMEOUT, true, MSG_ROLE);
     
     if (err != ESP_OK) {
-        ESP_LOGE(TAG, "Failed to retransmit important message to node addr 0x%04x, err_code %d", ctx.addr, err);
+        ESP_LOGE(TAG, "Failed to retransmit important message to node addr 0x%04x, err_code %d", ctx_ptr->addr, err);
         ESP_LOGI(TAG, "clearing important_message, index: %d", index);
         clear_important_message(index);
         return;
     }
 }
 
-void clear_important_message(uint8_t index) {
+void clear_important_message(int8_t index) {
     if (index < 0 || index > 2) {
         ESP_LOGE(TAG, "Invaild index recived in clear_important_message(), index: %d", index);
         return;

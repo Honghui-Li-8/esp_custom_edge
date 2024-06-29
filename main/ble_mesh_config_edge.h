@@ -24,6 +24,12 @@ void stop_esp_timer();
 void stop_periodic_timer();
 void set_message_ttl(uint8_t new_ttl);
 void send_message(uint16_t dst_address, uint16_t length, uint8_t *data_ptr, bool require_response);
+// vvv important message functions
+void send_important_message(uint16_t dst_address, uint16_t length, uint8_t *data_ptr);
+int8_t get_important_message_index(uint32_t opcode);
+void retransmit_important_message(esp_ble_mesh_msg_ctx_t* ctx_ptr, uint32_t opcode, int8_t index);
+void clear_important_message(int8_t index);
+// ^^^ important message functions
 void broadcast_message(uint16_t length, uint8_t *data_ptr);
 void send_response(esp_ble_mesh_msg_ctx_t *ctx, uint16_t length, uint8_t *data_ptr);
 void reset_esp32();
