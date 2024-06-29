@@ -24,6 +24,10 @@
 #define MSG_ROLE_ROOT           ROLE_PROVISIONER
 #define MSG_ROLE_EDGE           ROLE_NODE
 // #define MSG_ROLE_EDGE       ROLE_NODE // ROLE_FAST_PROV // ROLE_NODE
+#define HEARTBEAT_TIMER         1 // 1 to enable, 0 to disable heartbeat timer
+#define TIMEOUT_TIMER           1 // 1 to enable, 0 to disable timeout timer
+
+#define timer_for_ping          120000000 //10,000,000 means 10 seconds for pinging root to check conectivity
 
 #define COMP_DATA_PAGE_0    0x00
 

@@ -22,7 +22,9 @@ static void config_complete_handler(uint16_t addr) {
     node_own_addr = addr;
     setNodeState(CONNECTED);
     // pinging Root checking connectivity
-    loop_message_connection();
+    #if HEARTBEAT_TIMER
+        loop_message_connection();
+    #endif
     uart_sendMsg(0, "[E] Module Configured");
 }
 
@@ -45,7 +47,9 @@ static void recv_message_handler(esp_ble_mesh_msg_ctx_t *ctx, uint16_t length, u
     }
 
     // clear edge reset timeout
-    setTimeout(false);
+    #if TIMEOUT_TIMER
+        setTimeout(false);
+    #endif
     // stop_timer();
 
     // check if needs an response to confirm recived
@@ -64,7 +68,9 @@ static void recv_response_handler(esp_ble_mesh_msg_ctx_t *ctx, uint16_t length, 
     ESP_LOGW(TAG_M, "-> Received Response %d bytes [%*s]\n", length , length, (char *)msg_ptr);
 
     // message went through, clear edge reset timeout
-    setTimeout(false);
+    #if TIMEOUT_TIMER
+        setTimeout(false);
+    #endif
     // stop_timer();
 }
 
@@ -74,22 +80,24 @@ static void timeout_handler(esp_ble_mesh_msg_ctx_t *ctx, uint32_t opcode) {
     setNodeState(CONNECTED); //Finish send command
     
     // Print the current value of timeout
-    bool currentTimeout = getTimeout();
-    ESP_LOGI(TAG_M, " Current timeout value: %s", currentTimeout ? "true" : "false");
+    #if TIMEOUT_TIMER
+        bool currentTimeout = getTimeout();
+        ESP_LOGI(TAG_M, " Current timeout value: %s", currentTimeout ? "true" : "false");
 
-    if(!currentTimeout) {
-        ESP_LOGI(TAG_M, "Keep the first timeout time...");
-        startTimer();
-        setTimeout(true);
-    }
-    else if(getTimeElapsed() > 20.0) // that means timeout already happened once -- and if timeout persist for 20 seconds then reset itself.
-    {
-        // stop_timer(); //for timer_h
-        ESP_LOGI(TAG_M, "Edge not able to connect to root, Resetting the Edge Module "); //i should make a one-hit timer just before resetting.
+        if(!currentTimeout) {
+            ESP_LOGI(TAG_M, "Keep the first timeout time...");
+            startTimer();
+            setTimeout(true);
+        }
+        else if(getTimeElapsed() > 20.0) // that means timeout already happened once -- and if timeout persist for 20 seconds then reset itself.
+        {
+            // stop_timer(); //for timer_h
+            ESP_LOGI(TAG_M, "Edge not able to connect to root, Resetting the Edge Module "); //i should make a one-hit timer just before resetting.
 
-        reset_edge();
-        // reset_esp32();
-    }
+            reset_edge();
+            // reset_esp32();
+        }
+    #endif
 }
 
 //Create a new handler to handle broadcasting

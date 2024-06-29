@@ -46,11 +46,49 @@ enum State {
     WORKING,
 };
 
+/**
+ * @brief Starts the timer.
+ * 
+ * Initializes and starts the timer to begin tracking elapsed time.
+ */
 void startTimer();
+
+/**
+ * @brief Gets the time elapsed since the timer was started.
+ * 
+ * @return double The time elapsed in seconds.
+ * 
+ * Retrieves the amount of time that has passed since the timer was started.
+ */
 double getTimeElapsed();
+
+/**
+ * @brief Checks if a timeout has occurred.
+ * 
+ * @return bool True if a timeout has occurred, false otherwise.
+ * 
+ * Determines whether the timer has reached the timeout threshold.
+ */
 bool getTimeout();
+
+/**
+ * @brief Sets the timeout status.
+ * 
+ * @param boolean The new timeout status to set.
+ * 
+ * Updates the timeout status based on the given boolean value.
+ */
 void setTimeout(bool boolean);
+
+/**
+ * @brief Sets the state of the LED.
+ * 
+ * @param state The new state to set for the LED.
+ * 
+ * Changes the LED state to the specified value.
+ */
 void setLEDState(enum State state);
+
 
 void board_init(void);
 void board_led_operation(uint8_t r, uint8_t g, uint8_t b);
