@@ -724,7 +724,6 @@ esp_err_t esp_module_edge_init(
 
     ESP_LOGI(TAG, "Done Initializing...");
 
-
     // A timer to active the node state LED
     const esp_timer_create_args_t oneshot_timer_args = {
                 .callback = &oneshot_timer_callback,

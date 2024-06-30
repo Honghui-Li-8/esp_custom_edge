@@ -211,7 +211,7 @@ static void execute_uart_command(char *command, size_t cmd_total_len) {
 }
 
 void execute_network_command(char *command, size_t cmd_total_len) {
-#ifdef LOCAL_EDGE_DEVICE_ENABLED
+#if LOCAL_EDGE_DEVICE
     // meant to be only used by local_edge_device
     execute_uart_command(command, cmd_total_len);
 #endif
@@ -280,7 +280,7 @@ void app_main(void)
     // turn off log - Important, bc the server counting on uart escape byte 0xff and 0xfe
     //              - So need to enforce all uart signal
     //              - use uart_sendMsg or uart_sendData for message, the esp_log for dev debug
-    // Edge Module is fine since is using uart pin, seperate from usb-uart logging channle
+    // Edge Module is fine since is using uart pin, seperate from usb-uart logging channel
     // esp_log_level_set(TAG_ALL, ESP_LOG_NONE);
     // uart_sendMsg(0, "[UART] Turning off all Log's from esp_log\n");
 

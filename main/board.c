@@ -14,8 +14,8 @@
 #include <time.h>
 #include "board.h"
 
-#ifdef LOCAL_EDGE_DEVICE_ENABLED
-#include "local_edge_device.c"
+#if LOCAL_EDGE_DEVICE
+    #include "local_edge_device.c"
 #endif
 
 #define TAG_B "BOARD"
@@ -227,7 +227,7 @@ int uart_decoded_bytes(uint8_t* data, size_t length, uint8_t* decoded_data) {
 // do we need to regulate the message length?
 int uart_sendData(uint16_t node_addr, uint8_t* data, size_t length)
 {
-#ifdef LOCAL_EDGE_DEVICE_ENABLED
+#if LOCAL_EDGE_DEVICE
     // enabled local_edge_device, pass message to local_edge_device
     local_edge_device_network_message_handler(node_addr, data, length);
     return length;
@@ -272,7 +272,7 @@ void board_init(void)
     board_led_init();
     board_button_init();
 
-#ifdef LOCAL_EDGE_DEVICE_ENABLED
+#if LOCAL_EDGE_DEVICE
     // enabled local_edge_device, initialize the local device
     local_edge_device_init();
 #endif

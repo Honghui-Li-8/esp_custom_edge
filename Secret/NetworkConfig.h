@@ -6,9 +6,13 @@
 #define NODE_UUID_LEN 16 // can't change bc is base on esp
 #define CMD_LEN 5        // network command length - 5 byte
 
+#define LOCAL_EDGE_DEVICE       1   // 1 to enable, 0 to disable local edge device
+                                    // handle the edge device job in esp-edge module itself
+                                    // Don't pass to UART anymore
+#define HEARTBEAT_TIMER         1   // 1 to enable, 0 to disable heartbeat timer
+#define TIMEOUT_TIMER           1   // 1 to enable, 0 to disable timeout timer
+
 #define TAG_EDGE "EDGE"
-#define LOCAL_EDGE_DEVICE_ENABLED // handle the edge device job in esp-edge module itself
-                                  // Don't pass to UART anymore
 
 #define ECS_193_CID         0x02FF  // regulate the module connecting
 #define APP_KEY_IDX         0x0000
@@ -24,8 +28,6 @@
 #define MSG_ROLE_ROOT           ROLE_PROVISIONER
 #define MSG_ROLE_EDGE           ROLE_NODE
 // #define MSG_ROLE_EDGE       ROLE_NODE // ROLE_FAST_PROV // ROLE_NODE
-#define HEARTBEAT_TIMER         1 // 1 to enable, 0 to disable heartbeat timer
-#define TIMEOUT_TIMER           1 // 1 to enable, 0 to disable timeout timer
 
 #define timer_for_ping          120000000 //10,000,000 means 10 seconds for pinging root to check conectivity
 
