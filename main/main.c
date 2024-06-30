@@ -81,22 +81,7 @@ static void timeout_handler(esp_ble_mesh_msg_ctx_t *ctx, uint32_t opcode) {
     
     // Print the current value of timeout
     #if TIMEOUT_TIMER
-        bool currentTimeout = getTimeout();
-        ESP_LOGI(TAG_M, " Current timeout value: %s", currentTimeout ? "true" : "false");
-
-        if(!currentTimeout) {
-            ESP_LOGI(TAG_M, "Keep the first timeout time...");
-            startTimer();
-            setTimeout(true);
-        }
-        else if(getTimeElapsed() > 20.0) // that means timeout already happened once -- and if timeout persist for 20 seconds then reset itself.
-        {
-            // stop_timer(); //for timer_h
-            ESP_LOGI(TAG_M, "Edge not able to connect to root, Resetting the Edge Module "); //i should make a one-hit timer just before resetting.
-
-            reset_edge();
-            // reset_esp32();
-        }
+        handleConnectionTimeout();
     #endif
 }
 

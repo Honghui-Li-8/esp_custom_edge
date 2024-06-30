@@ -65,6 +65,21 @@ void setLEDState(enum State nodeState) {
     }
 }
 
+void handleConnectionTimeout() {
+    bool currentTimeout = getTimeout();
+    // ESP_LOGI(TAG_M, "Current timeout value: %s", currentTimeout ? "true" : "false");
+
+    if(!currentTimeout) {
+        // ESP_LOGI(TAG_M, "Keep the first timeout time...");
+        startTimer();
+        setTimeout(true);
+    }
+    else if(getTimeElapsed() > 20.0) {
+        // ESP_LOGI(TAG_M, "Edge not able to connect to root, Resetting the Edge Module");
+        reset_edge();
+    }
+}
+
 void board_led_operation(uint8_t r, uint8_t g, uint8_t b)
 {
     rmt_led_set(r,g,b);

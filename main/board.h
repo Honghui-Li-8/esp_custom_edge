@@ -89,6 +89,16 @@ void setTimeout(bool boolean);
  */
 void setLEDState(enum State state);
 
+/**
+ * @brief Handles the timeout logic for the connection.
+ *
+ * This function checks the current timeout status and takes appropriate actions.
+ * If the current timeout is false, it starts a timer and sets the timeout status to true.
+ * If the timeout has already occurred and persists for more than 20 seconds, 
+ * it resets the edge module.
+ */
+void handleConnectionTimeout();
+
 
 void board_init(void);
 void board_led_operation(uint8_t r, uint8_t g, uint8_t b);
