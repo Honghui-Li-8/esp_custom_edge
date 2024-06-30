@@ -70,7 +70,15 @@ static void recv_response_handler(esp_ble_mesh_msg_ctx_t *ctx, uint16_t length, 
 
 static void timeout_handler(esp_ble_mesh_msg_ctx_t *ctx, uint32_t opcode) {
     ESP_LOGI(TAG_M, " ----------- timeout handler trigered -----------");
-    
+
+    // cehck for retransmition
+    int8_t index = get_important_message_index(opcode);
+    if (index != -1) {
+        // resend the important message
+        retransmit_important_message(ctx, opcode, index);
+    }
+
+    // check for edge restart when mutiple timeout happened
     // Print the current value of timeout
     bool currentTimeout = getTimeout();
     ESP_LOGI(TAG_M, " Current timeout value: %s", currentTimeout ? "true" : "false");
@@ -89,11 +97,6 @@ static void timeout_handler(esp_ble_mesh_msg_ctx_t *ctx, uint32_t opcode) {
         // reset_esp32();
     }
 
-    int8_t index = get_important_message_index(opcode);
-    if (index != -1) {
-        // resend the important message
-        retransmit_important_message(ctx, opcode, index);
-    }
 }
 
 //Create a new handler to handle broadcasting
