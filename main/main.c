@@ -30,32 +30,23 @@ static void recv_message_handler(esp_ble_mesh_msg_ctx_t *ctx, uint16_t length, u
     // ESP_LOGI(TAG_M, " ----------- recv_message handler trigered -----------");
     uint16_t node_addr = ctx->addr;
     ESP_LOGW(TAG_M, "-> Received Message \'%*s\' from node-%d", length, (char *)msg_ptr, node_addr);
-
-    // recived a ble-message from edge ndoe
-    // ========== potential special case ==========
-    if (strncmp((char*)msg_ptr, "Special Case", 12) == 0) {
-        // place holder for special case that need to be handled in esp-root module
-        // handle locally
-    }
-
-    // ========== General case, pass up to APP level ==========
-    // pass node_addr & data to to edge device using uart
-    else {
-        uart_sendData(node_addr, msg_ptr, length);
-    }
-
-    // clear edge reset timeout
-    setTimeout(false);
+    setTimeout(false); // clear edge reset timeout
     // stop_timer();
 
+    // recived a ble-message from edge ndoe
+    uart_sendData(node_addr, msg_ptr, length);
+
+
     // check if needs an response to confirm recived
-    if (opcode != ECS_193_MODEL_OP_MESSAGE_R) {
+    if (opcode == ECS_193_MODEL_OP_MESSAGE) {
+        // only normal message no need for response
         return;
     }
+
     // send response
     char response[5] = "S";
     uint16_t response_length = strlen(response);
-    send_response(ctx, response_length, (uint8_t *)response);
+    send_response(ctx, response_length, (uint8_t *)response, opcode);
     ESP_LOGW(TAG_M, "<- Sended Response %d bytes \'%*s\'", response_length, response_length, (char *)response);
 }
 
@@ -126,7 +117,7 @@ static void connectivity_handler(esp_ble_mesh_msg_ctx_t *ctx, uint16_t length, u
 
     char response[3] = "S";
     uint16_t response_length = strlen(response);
-    send_response(ctx, response_length, (uint8_t *)response);
+    send_response(ctx, response_length, (uint8_t *)response, ECS_193_MODEL_OP_CONNECTIVITY);
 }
 
 static void execute_uart_command(char *command, size_t cmd_total_len) {

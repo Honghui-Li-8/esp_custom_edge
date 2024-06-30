@@ -524,24 +524,47 @@ void send_connectivity(uint16_t dst_address, uint16_t length, uint8_t *data_ptr)
     }
 }
 
-void send_response(esp_ble_mesh_msg_ctx_t *ctx, uint16_t length, uint8_t *data_ptr)
+void send_response(esp_ble_mesh_msg_ctx_t *ctx, uint16_t length, uint8_t *data_ptr, uint32_t message_opcode)
 {
-    uint32_t opcode = ECS_193_MODEL_OP_RESPONSE;
+    uint32_t response_opcode = ECS_193_MODEL_OP_RESPONSE;
+    switch (message_opcode)
+    {
+    case ECS_193_MODEL_OP_MESSAGE_R:
+        response_opcode = ECS_193_MODEL_OP_RESPONSE;
+        break;
+    case ECS_193_MODEL_OP_MESSAGE_I_0:
+        response_opcode = ECS_193_MODEL_OP_RESPONSE_I_0;
+        break;
+    case ECS_193_MODEL_OP_MESSAGE_I_1:
+        response_opcode = ECS_193_MODEL_OP_RESPONSE_I_1;
+        break;
+    case ECS_193_MODEL_OP_MESSAGE_I_2:
+        response_opcode = ECS_193_MODEL_OP_RESPONSE_I_2;
+        break;
+    case ECS_193_MODEL_OP_CONNECTIVITY:
+        response_opcode = ECS_193_MODEL_OP_RESPONSE;
+        break;
+
+    default:
+        ESP_LOGE(TAG, "send_response() met invaild Message_Opcode %" PRIu32 ", no corresponding Response_Opcode for it", message_opcode);
+        break;
+    }
+
     esp_err_t err;
 
+    ESP_LOGW(TAG, "response opcode: %" PRIu32, response_opcode);
     ESP_LOGW(TAG, "response net_idx: %" PRIu16, ctx->net_idx);
     ESP_LOGW(TAG, "response app_idx: %" PRIu16, ctx->app_idx);
     ESP_LOGW(TAG, "response addr: %" PRIu16, ctx->addr);
     ESP_LOGW(TAG, "response recv_dst: %" PRIu16, ctx->recv_dst);
 
-    err = esp_ble_mesh_server_model_send_msg(server_model, ctx, opcode, length, data_ptr);
+    err = esp_ble_mesh_server_model_send_msg(server_model, ctx, response_opcode, length, data_ptr);
     if (err != ESP_OK) {
-        ESP_LOGE(TAG, "Failed to send message to node addr 0x%04x, err_code %d", ctx->addr, err);
+        ESP_LOGE(TAG, "Failed to send response to node addr 0x%04x, err_code %d", ctx->addr, err);
         return;
     }
     
 }
-
 
 static esp_err_t config_complete(uint16_t node_addr) {
     config_complete_handler_cb(node_addr);

@@ -31,7 +31,7 @@ void retransmit_important_message(esp_ble_mesh_msg_ctx_t* ctx_ptr, uint32_t opco
 void clear_important_message(int8_t index);
 // ^^^ important message functions
 void broadcast_message(uint16_t length, uint8_t *data_ptr);
-void send_response(esp_ble_mesh_msg_ctx_t *ctx, uint16_t length, uint8_t *data_ptr);
+void send_response(esp_ble_mesh_msg_ctx_t *ctx, uint16_t length, uint8_t *data_ptr, uint32_t message_opcode);
 void reset_esp32();
 void reset_edge();
 esp_err_t esp_module_edge_init(
