@@ -10,7 +10,7 @@
 #define LOCAL_EDGE_DEVICE_ENABLED // handle the edge device job in esp-edge module itself
                                   // Don't pass to UART anymore
 
-#define ECS_193_CID         0x02FF  // regulate the module connecting
+#define ECS_193_CID         0x0193  // regulate the module connecting
 #define APP_KEY_IDX         0x0000
 #define APP_KEY_OCTET       0x12
 
@@ -20,7 +20,7 @@
 #define INIT_UUID_MATCH     { 0x32, 0x10 } // regulate the node get provitioned
 
 #define DEFAULT_MSG_SEND_TTL    2 // default value for message ttl, ttl changeable in runtime from command
-#define MSG_TIMEOUT             5
+#define MSG_TIMEOUT             0
 #define MSG_ROLE_ROOT           ROLE_PROVISIONER
 #define MSG_ROLE_EDGE           ROLE_NODE
 // #define MSG_ROLE_EDGE       ROLE_NODE // ROLE_FAST_PROV // ROLE_NODE

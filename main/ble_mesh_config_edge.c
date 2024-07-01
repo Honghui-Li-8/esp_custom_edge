@@ -148,6 +148,7 @@ static void (*connectivity_handler_cb)(esp_ble_mesh_msg_ctx_t *ctx, uint16_t len
 
 //-------------------- EDGE Network Utility Functions ----------------
 void set_message_ttl(uint8_t new_ttl) {
+    ESP_LOGW(TAG, " === Updated message ttl on edge %d ===", new_ttl);
     ble_message_ttl = new_ttl;
 }
 
@@ -406,6 +407,7 @@ void send_important_message(uint16_t dst_address, uint16_t length, uint8_t *data
     memcpy(important_message_data_list[index], data_ptr, length);
 
     setNodeState(WORKING);
+    ESP_LOGE(TAG, "Sending important message, ttl: %d", ctx.send_ttl);
     err = esp_ble_mesh_client_model_send_msg(client_model, &ctx, opcode, 
         important_message_data_lengths[index], important_message_data_list[index], 
         MSG_TIMEOUT, true, message_role);
