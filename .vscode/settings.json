@@ -1,10 +1,16 @@
 {
   "C_Cpp.intelliSenseEngine": "default",
-  "idf.portWin": "COM14",
   "idf.adapterTargetName": "esp32h2",
-  "idf.flashType": "UART",
   "idf.openOcdConfigs": [
     "board/esp32h2-builtin.cfg"
   ],
-  "idf.port": "/dev/ttyUSB1"
+  "files.associations": {
+    "ble_mesh_example_nvs.h": "c",
+    "random": "c",
+    "ble_mesh_config_root.h": "c",
+    "iot_button.h": "c"
+  },
+  "idf.portWin": "COM8",
+  "idf.flashType": "UART",
+  "idf.port": "/dev/ttyUSB0"
 }

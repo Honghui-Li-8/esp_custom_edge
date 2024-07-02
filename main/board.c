@@ -14,11 +14,20 @@
 #include <time.h>
 #include "board.h"
 
+#if LOCAL_EDGE_DEVICE
+    #include "local_edge_device.c"
+#endif
+
 #define TAG_B "BOARD"
 #define TAG_W "Debug"
 
-extern void send_message(uint16_t dst_address, uint16_t length, uint8_t *data_ptr);
+extern void send_message(uint16_t dst_address, uint16_t length, uint8_t *data_ptr, bool require_response);
 extern void printNetworkInfo();
+extern void create_data_send_event();
+extern void stop_data_send_event();
+extern void sendRobotRequest();
+extern void reset_edge();
+extern void send_important_message(uint16_t dst_address, uint16_t length, uint8_t *data_ptr);
 
 clock_t start_time;
 bool timeout = false;
@@ -40,43 +49,115 @@ bool getTimeout() {
     return timeout;
 }
 
+void setLEDState(enum State nodeState) {
+    if(nodeState == DISCONNECTED) {
+        board_led_operation(50, 0, 0); // Red LED Color
+    }
+    else if (nodeState == CONNECTING) {
+        board_led_operation(0, 0, 50); // Blue LED Color
+    }
+    else if (nodeState ==  CONNECTED) {
+        board_led_operation(0, 50, 0); // Green LED Color
+    }
+    else if (nodeState == WORKING) {
+        board_led_operation(50, 50, 0); // Yellow LED Color
+    }
+    else {
+        board_led_operation(0, 0, 0); // No Color == No State
+    }
+}
+
+void handleConnectionTimeout() {
+    bool currentTimeout = getTimeout();
+    // ESP_LOGI(TAG_M, "Current timeout value: %s", currentTimeout ? "true" : "false");
+
+    if(!currentTimeout) {
+        // ESP_LOGI(TAG_M, "Keep the first timeout time...");
+        startTimer();
+        setTimeout(true);
+    }
+    else if(getTimeElapsed() > 20.0) {
+        // ESP_LOGI(TAG_M, "Edge not able to connect to root, Resetting the Edge Module");
+        reset_edge();
+    }
+}
+
+void board_led_operation(uint8_t r, uint8_t g, uint8_t b)
+{
+    rmt_led_set(r,g,b);
+}
+
+static void board_led_init(void)
+{
+    rmt_encoder_init();
+}
+
+// ====================== repetive code, better clean up ======================
+void board_dispatch_network_command(char *ble_cmd, uint16_t node_addr, uint8_t *data_buffer, size_t data_length)
+{
+    uint8_t command_msg[MAX_MSG_LEN + BLE_CMD_LEN + BLE_ADDR_LEN];
+    memset(command_msg, 0, MAX_MSG_LEN + BLE_CMD_LEN + BLE_ADDR_LEN);
+    uint8_t *msg_itr = command_msg;
+    uint16_t node_addr_network_order = htons(node_addr);
+
+    if (data_length > MAX_MSG_LEN)
+    {
+        ESP_LOGE(TAG_L, "Local Edge Device Trying to Send %d bytes message that's more than MAX_MSG_LEN-%d", (int)data_length, (int)MAX_MSG_LEN);
+        return;
+    }
+
+    memcpy(msg_itr, ble_cmd, BLE_CMD_LEN);
+    msg_itr += BLE_CMD_LEN;
+    memcpy(msg_itr, &node_addr_network_order, BLE_ADDR_LEN);
+    msg_itr += BLE_ADDR_LEN;
+
+    if (data_buffer != NULL)
+    {
+        memcpy(msg_itr, data_buffer, data_length);
+        msg_itr += data_length;
+    }
+
+    ESP_LOGI(TAG_L, "data_buffer: '%.*s'", data_length, data_buffer);
+    execute_network_command((char *)command_msg, msg_itr - command_msg);
+}
+
+void board_ble_send_to_root(uint8_t *data_buffer, size_t data_length)
+{
+    char ble_cmd[7] = "SEND-";
+    ESP_LOGI(TAG_L, "data_buffer: '%.*s'", data_length, data_buffer);
+    board_dispatch_network_command(ble_cmd, 0, data_buffer, data_length);
+}
+
+// ====================== repetive code, better clean up ======================
+
 static void button_tap_cb(void* arg)
 {
-    ESP_LOGW(TAG_W, "button pressed ------------------------- ");
-    // static uint8_t *data_buffer = NULL;
-    // if (data_buffer == NULL) {
-    //     data_buffer = (uint8_t*)malloc(128);
-    //     if (data_buffer == NULL) {
-    //         printf("Memory allocation failed.\n");
-    //         return;
-    //     }
-    // }
+    ESP_LOGW(TAG_W, "button taped ------------------------- ");
+    ESP_LOGW(TAG_W, "sending Important Message------");
 
-    // strcpy((char*)data_buffer, "Broadcast sent");
-    // send_broadcast(strlen("Broadcast sent") + 1, data_buffer);
-    static int control = 1;
-    // if (control == 0) {
-    //     // TSTITEST0
-    //     ESP_LOGW(TAG_W, "send RST------");
-    //     char data[20] = "RST";
-    //     uart_sendData(0, (uint8_t*) data, strlen(data));
-    //     ESP_LOGW(TAG_W, "sended RST-------");
-    //     control = 1;
-    // }else
-    if (control == 1) {
-        // TSTITEST0
-        ESP_LOGW(TAG_W, "sending------");
-        char data[20] = "TSTITEST0";
-        uart_sendData(0, (uint8_t*) data, strlen(data));
-        ESP_LOGW(TAG_W, "sended-------");
+    char message[20] = "---Important---";
+    uint16_t message_length = strlen(message);
+    send_important_message(PROV_OWN_ADDR, message_length, (uint8_t*) message);
+}
+
+static void button_liong_press_cb(void *arg)
+{
+    ESP_LOGW(TAG_W, "button long pressed ------------------------- ");
+    ESP_LOGW(TAG_W, "toggling data sending ------");
+    static int control = 0;
+
+    if (control == 0) {
+        ESP_LOGW(TAG_W, "clear data sending ------");
+        stop_data_send_event();
+        control = 1;
+    } else if (control == 1) {
+        ESP_LOGW(TAG_W, "create data sending ------");
+        create_data_send_event();
         control = 2;
     } else {
-        // start test
-        ESP_LOGW(TAG_W, "sending------");
-        char data[20] = "TSTS";
-        uart_sendData(0, (uint8_t*) data, strlen(data));
-        ESP_LOGW(TAG_W, "sended-------");
-        control = 1;
+        ESP_LOGW(TAG_W, "clear data sending ------");
+        stop_data_send_event();
+        control = 0;
     }
 }
 
@@ -85,6 +166,7 @@ static void board_button_init(void)
     button_handle_t btn_handle = iot_button_create(BUTTON_IO_NUM, BUTTON_ACTIVE_LEVEL);
     if (btn_handle) {
         iot_button_set_evt_cb(btn_handle, BUTTON_CB_RELEASE, button_tap_cb, "RELEASE");
+        iot_button_set_serial_cb(btn_handle, 3, 5000, button_liong_press_cb, "SERIAL");
     }
 }
 
@@ -165,6 +247,12 @@ int uart_decoded_bytes(uint8_t* data, size_t length, uint8_t* decoded_data) {
 // do we need to regulate the message length?
 int uart_sendData(uint16_t node_addr, uint8_t* data, size_t length)
 {
+#if LOCAL_EDGE_DEVICE
+    // enabled local_edge_device, pass message to local_edge_device
+    local_edge_device_network_message_handler(node_addr, data, length);
+    return length;
+#else
+    // not enabled local_edge_device, pass message to uart with uart encoding
     uint8_t uart_start = UART_START;
     uint8_t uart_end = UART_END;
     int txBytes = 0;
@@ -177,6 +265,7 @@ int uart_sendData(uint16_t node_addr, uint8_t* data, size_t length)
 
     ESP_LOGI("[UART]", "Wrote %d bytes Data on uart-tx", txBytes);
     return txBytes;
+#endif
 }
 
 // TB Finish, need to encode the send data for escape bytes
@@ -200,5 +289,11 @@ int uart_sendMsg(uint16_t node_addr, char* msg)
 void board_init(void)
 {
     uart_init();
+    board_led_init();
     board_button_init();
+
+#if LOCAL_EDGE_DEVICE
+    // enabled local_edge_device, initialize the local device
+    local_edge_device_init();
+#endif
 }
