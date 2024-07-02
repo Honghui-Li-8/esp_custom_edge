@@ -309,6 +309,11 @@ static void ble_mesh_custom_model_cb(esp_ble_mesh_model_cb_event_t event, esp_bl
     case ESP_BLE_MESH_MODEL_SEND_COMP_EVT:
         if (param->model_send_comp.err_code) {
             ESP_LOGE(TAG, "Failed to send message 0x%06" PRIx32, param->model_send_comp.opcode);
+            int8_t index = get_important_message_index(param->model_send_comp.opcode);
+            if (index != -1) {
+                ESP_LOGE(TAG, "opcode 0x%06" PRIx32 " is \'important message\', clearing failed important message", param->model_send_comp.opcode);
+                clear_important_message(index);
+            }
             break;
         }
         // start_time = esp_timer_get_time();
@@ -413,6 +418,7 @@ void send_important_message(uint16_t dst_address, uint16_t length, uint8_t *data
     
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "Failed to send important message to node addr 0x%04x, err_code %d", dst_address, err);
+        clear_important_message(index);
         return;
     }
 }
@@ -424,6 +430,13 @@ int8_t get_important_message_index(uint32_t opcode) {
     } else if (opcode == ECS_193_MODEL_OP_MESSAGE_I_1) {
         index = 1;
     } else if (opcode == ECS_193_MODEL_OP_MESSAGE_I_2) {
+        index = 2;
+    }
+    else if (opcode == ECS_193_MODEL_OP_RESPONSE_I_0) {
+        index = 0;
+    } else if (opcode == ECS_193_MODEL_OP_RESPONSE_I_1) {
+        index = 1;
+    } else if (opcode == ECS_193_MODEL_OP_RESPONSE_I_2) {
         index = 2;
     }
 
