@@ -26,6 +26,7 @@ extern void printNetworkInfo();
 extern void create_data_send_event();
 extern void stop_data_send_event();
 extern void sendRobotRequest();
+extern void reset_edge();
 extern void send_important_message(uint16_t dst_address, uint16_t length, uint8_t *data_ptr);
 
 clock_t start_time;
