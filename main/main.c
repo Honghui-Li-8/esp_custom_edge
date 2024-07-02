@@ -32,19 +32,11 @@ static void recv_message_handler(esp_ble_mesh_msg_ctx_t *ctx, uint16_t length, u
     // ESP_LOGI(TAG_M, " ----------- recv_message handler trigered -----------");
     uint16_t node_addr = ctx->addr;
     ESP_LOGW(TAG_M, "-> Received Message \'%*s\' from node-%d", length, (char *)msg_ptr, node_addr);
+    setTimeout(false); // clear edge reset timeout
+    // stop_timer();
 
     // recived a ble-message from edge ndoe
-    // ========== potential special case ==========
-    if (strncmp((char*)msg_ptr, "Special Case", 12) == 0) {
-        // place holder for special case that need to be handled in esp-root module
-        // handle locally
-    }
-
-    // ========== General case, pass up to APP level ==========
-    // pass node_addr & data to to edge device using uart
-    else {
-        uart_sendData(node_addr, msg_ptr, length);
-    }
+    uart_sendData(node_addr, msg_ptr, length);
 
     // clear edge reset timeout
     #if TIMEOUT_TIMER
@@ -53,17 +45,20 @@ static void recv_message_handler(esp_ble_mesh_msg_ctx_t *ctx, uint16_t length, u
     // stop_timer();
 
     // check if needs an response to confirm recived
-    if (opcode != ECS_193_MODEL_OP_MESSAGE_R) {
+    if (opcode == ECS_193_MODEL_OP_MESSAGE) {
+        // only normal message no need for response
         return;
     }
+
     // send response
     char response[5] = "S";
     uint16_t response_length = strlen(response);
-    send_response(ctx, response_length, (uint8_t *)response);
+    send_response(ctx, response_length, (uint8_t *)response, opcode);
     ESP_LOGW(TAG_M, "<- Sended Response %d bytes \'%*s\'", response_length, response_length, (char *)response);
 }
 
-static void recv_response_handler(esp_ble_mesh_msg_ctx_t *ctx, uint16_t length, uint8_t *msg_ptr) {
+
+static void recv_response_handler(esp_ble_mesh_msg_ctx_t *ctx, uint16_t length, uint8_t *msg_ptr, uint32_t opcode) {
     // ESP_LOGI(TAG_M, " ----------- recv_response handler trigered -----------");
     ESP_LOGW(TAG_M, "-> Received Response %d bytes [%*s]\n", length , length, (char *)msg_ptr);
 
@@ -72,13 +67,27 @@ static void recv_response_handler(esp_ble_mesh_msg_ctx_t *ctx, uint16_t length, 
         setTimeout(false);
     #endif
     // stop_timer();
+
+    // clear confirmed recived important message
+    int8_t index = get_important_message_index(opcode);
+    if (index != -1) {
+        // resend the important message
+        ESP_LOGW(TAG_M, "Confirm delivered on Important Message, index: %d", index);
+        clear_important_message(index);
+    }
 }
 
 static void timeout_handler(esp_ble_mesh_msg_ctx_t *ctx, uint32_t opcode) {
     ESP_LOGI(TAG_M, " ----------- timeout handler trigered -----------");
-    
-    setNodeState(CONNECTED); //Finish send command
-    
+
+    // cehck for retransmition
+    int8_t index = get_important_message_index(opcode);
+    if (index != -1) {
+        // resend the important message
+        retransmit_important_message(ctx, opcode, index);
+    }
+
+    // check for edge restart when mutiple timeout happened
     // Print the current value of timeout
     #if TIMEOUT_TIMER
         handleConnectionTimeout();
@@ -106,7 +115,7 @@ static void connectivity_handler(esp_ble_mesh_msg_ctx_t *ctx, uint16_t length, u
 
     char response[3] = "S";
     uint16_t response_length = strlen(response);
-    send_response(ctx, response_length, (uint8_t *)response);
+    send_response(ctx, response_length, (uint8_t *)response, ECS_193_MODEL_OP_CONNECTIVITY);
 }
 
 static void execute_uart_command(char *command, size_t cmd_total_len) {

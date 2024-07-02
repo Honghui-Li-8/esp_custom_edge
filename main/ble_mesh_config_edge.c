@@ -22,6 +22,9 @@ esp_timer_handle_t periodic_timer;
 esp_timer_handle_t oneshot_timer;
 
 bool periodic_timer_start = false;
+static uint8_t** important_message_data_list = NULL;
+static uint16_t important_message_data_lengths[] = {0, 0, 0};
+static uint8_t important_message_retransmit_times[] = {0, 0, 0};
 
 static uint8_t dev_uuid[ESP_BLE_MESH_OCTET16_LEN] = INIT_UUID_MATCH;
 static struct esp_ble_mesh_key {
@@ -77,9 +80,14 @@ static esp_ble_mesh_model_t root_models[] = {
 };
 
 static const esp_ble_mesh_client_op_pair_t client_op_pair[] = {
-    {ECS_193_MODEL_OP_MESSAGE, ECS_193_MODEL_OP_RESPONSE},
+    {ECS_193_MODEL_OP_MESSAGE, ECS_193_MODEL_OP_EMPTY},
+    {ECS_193_MODEL_OP_MESSAGE_R, ECS_193_MODEL_OP_RESPONSE},
+    {ECS_193_MODEL_OP_MESSAGE_I_0, ECS_193_MODEL_OP_RESPONSE_I_0},
+    {ECS_193_MODEL_OP_MESSAGE_I_1, ECS_193_MODEL_OP_RESPONSE_I_1},
+    {ECS_193_MODEL_OP_MESSAGE_I_2, ECS_193_MODEL_OP_RESPONSE_I_2},
     {ECS_193_MODEL_OP_BROADCAST, ECS_193_MODEL_OP_EMPTY},
     {ECS_193_MODEL_OP_CONNECTIVITY, ECS_193_MODEL_OP_RESPONSE},
+    {ECS_193_MODEL_OP_SET_TTL, ECS_193_MODEL_OP_EMPTY},
 };
 
 static esp_ble_mesh_client_t ecs_193_client = {
@@ -89,11 +97,18 @@ static esp_ble_mesh_client_t ecs_193_client = {
 
 static esp_ble_mesh_model_op_t client_op[] = { // operation client will "RECEIVED"
     ESP_BLE_MESH_MODEL_OP(ECS_193_MODEL_OP_RESPONSE, 1),
+    ESP_BLE_MESH_MODEL_OP(ECS_193_MODEL_OP_RESPONSE_I_0, 1),
+    ESP_BLE_MESH_MODEL_OP(ECS_193_MODEL_OP_RESPONSE_I_1, 1),
+    ESP_BLE_MESH_MODEL_OP(ECS_193_MODEL_OP_RESPONSE_I_2, 1),
     ESP_BLE_MESH_MODEL_OP_END,
 };
 
 static esp_ble_mesh_model_op_t server_op[] = { // operation server will "RECEIVED"
     ESP_BLE_MESH_MODEL_OP(ECS_193_MODEL_OP_MESSAGE, 1),
+    ESP_BLE_MESH_MODEL_OP(ECS_193_MODEL_OP_MESSAGE_R, 1),
+    ESP_BLE_MESH_MODEL_OP(ECS_193_MODEL_OP_MESSAGE_I_0, 1),
+    ESP_BLE_MESH_MODEL_OP(ECS_193_MODEL_OP_MESSAGE_I_1, 1),
+    ESP_BLE_MESH_MODEL_OP(ECS_193_MODEL_OP_MESSAGE_I_2, 1),
     ESP_BLE_MESH_MODEL_OP(ECS_193_MODEL_OP_BROADCAST, 1),
     ESP_BLE_MESH_MODEL_OP(ECS_193_MODEL_OP_CONNECTIVITY, 1),
     ESP_BLE_MESH_MODEL_OP(ECS_193_MODEL_OP_SET_TTL, 1), // edge will recive set ttl from root
@@ -124,7 +139,7 @@ static esp_ble_mesh_comp_t composition = { // composition of current module
 static void (*prov_complete_handler_cb)(uint16_t node_index, const esp_ble_mesh_octet16_t uuid, uint16_t addr, uint8_t element_num, uint16_t net_idx) = NULL;
 static void (*config_complete_handler_cb)(uint16_t addr) = NULL;
 static void (*recv_message_handler_cb)(esp_ble_mesh_msg_ctx_t *ctx, uint16_t length, uint8_t *msg_ptr, uint32_t opcode) = NULL;
-static void (*recv_response_handler_cb)(esp_ble_mesh_msg_ctx_t *ctx, uint16_t length, uint8_t *msg_ptr) = NULL;
+static void (*recv_response_handler_cb)(esp_ble_mesh_msg_ctx_t *ctx, uint16_t length, uint8_t *msg_ptr, uint32_t opcode) = NULL;
 static void (*timeout_handler_cb)(esp_ble_mesh_msg_ctx_t *ctx, uint32_t opcode) = NULL;
 static void (*broadcast_handler_cb)(esp_ble_mesh_msg_ctx_t *ctx, uint16_t length, uint8_t *msg_ptr) = NULL;
 static void (*connectivity_handler_cb)(esp_ble_mesh_msg_ctx_t *ctx, uint16_t length, uint8_t *msg_ptr) = NULL;;
@@ -132,6 +147,7 @@ static void (*connectivity_handler_cb)(esp_ble_mesh_msg_ctx_t *ctx, uint16_t len
 
 //-------------------- EDGE Network Utility Functions ----------------
 void set_message_ttl(uint8_t new_ttl) {
+    ESP_LOGW(TAG, " === Updated message ttl on edge %d ===", new_ttl);
     ble_message_ttl = new_ttl;
 }
 
@@ -254,15 +270,27 @@ static void ble_mesh_custom_model_cb(esp_ble_mesh_model_cb_event_t event, esp_bl
 
     switch (event) {
     case ESP_BLE_MESH_MODEL_OPERATION_EVT:
-        if (param->model_operation.opcode == ECS_193_MODEL_OP_MESSAGE) {
-            recv_message_handler_cb(param->model_operation.ctx, param->model_operation.length
-                                , param->model_operation.msg, param->model_operation.opcode);
-        } else if (param->model_operation.opcode == ECS_193_MODEL_OP_MESSAGE_R) {
-            recv_message_handler_cb(param->model_operation.ctx, param->model_operation.length
-                                , param->model_operation.msg, param->model_operation.opcode);
-        } else if (param->model_operation.opcode == ECS_193_MODEL_OP_RESPONSE) {
-            recv_response_handler_cb(param->model_operation.ctx, param->model_operation.length, param->model_operation.msg);
-        } else if (param->model_operation.opcode == ECS_193_MODEL_OP_BROADCAST) {
+        switch (param->model_operation.opcode) {
+            case ECS_193_MODEL_OP_MESSAGE:
+            case ECS_193_MODEL_OP_MESSAGE_R:
+            case ECS_193_MODEL_OP_MESSAGE_I_0:
+            case ECS_193_MODEL_OP_MESSAGE_I_1:
+            case ECS_193_MODEL_OP_MESSAGE_I_2:
+                recv_message_handler_cb(param->model_operation.ctx, param->model_operation.length, param->model_operation.msg, param->model_operation.opcode);
+                break;
+
+            case ECS_193_MODEL_OP_RESPONSE:
+            case ECS_193_MODEL_OP_RESPONSE_I_0:
+            case ECS_193_MODEL_OP_RESPONSE_I_1:
+            case ECS_193_MODEL_OP_RESPONSE_I_2:
+                recv_response_handler_cb(param->model_operation.ctx, param->model_operation.length, param->model_operation.msg, param->model_operation.opcode);
+                break;
+            
+            default:
+                break;
+        }     
+
+        if (param->model_operation.opcode == ECS_193_MODEL_OP_BROADCAST) {
             broadcast_handler_cb(param->model_operation.ctx, param->model_operation.length, param->model_operation.msg);
         } else if (param->model_operation.opcode == ECS_193_MODEL_OP_CONNECTIVITY) {
             connectivity_handler_cb(param->model_operation.ctx, param->model_operation.length, param->model_operation.msg);
@@ -329,6 +357,125 @@ void send_message(uint16_t dst_address, uint16_t length, uint8_t *data_ptr, bool
     
 }
 
+void send_important_message(uint16_t dst_address, uint16_t length, uint8_t *data_ptr) {
+    int index = -1;
+    
+    for (int i=0; i<3; i++) {
+        if (important_message_data_list[i] == NULL) {
+            index = i;
+            break;
+        }
+    }
+
+    if (index == -1) {
+        ESP_LOGW(TAG, "Too many on tracking important message, failed to add one more");
+        return;
+    }
+
+    // send message
+    esp_ble_mesh_msg_ctx_t ctx = {0};
+    uint32_t opcode = ECS_193_MODEL_OP_MESSAGE;
+    esp_ble_mesh_dev_role_t message_role = MSG_ROLE;
+    esp_err_t err = ESP_OK;
+
+    ctx.net_idx = ble_mesh_key.net_idx;
+    ctx.app_idx = ble_mesh_key.app_idx;
+    ctx.addr = dst_address;
+    ctx.send_ttl = ble_message_ttl;
+    
+    if (index == 0) {
+        opcode = ECS_193_MODEL_OP_MESSAGE_I_0;
+    } else if (index == 1) {
+        opcode = ECS_193_MODEL_OP_MESSAGE_I_1;
+    } else if (index == 2) {
+        opcode = ECS_193_MODEL_OP_MESSAGE_I_2;
+    } else {
+        ESP_LOGW(TAG, "Error Index: [%d] for important messasge", index);
+        return;
+    }
+
+    // save the important message incase of need for resend
+    important_message_data_list[index] = (uint8_t*) malloc(length * sizeof(uint8_t));
+    important_message_data_lengths[index] = length;
+    important_message_retransmit_times[index] = 0;
+    
+    if (important_message_data_list[index] == NULL) {
+        ESP_LOGW(TAG, "Failed to allocate [%d] bytes for important messasge", length);
+        return;
+    }
+    memcpy(important_message_data_list[index], data_ptr, length);
+
+    setNodeState(WORKING);
+    ESP_LOGE(TAG, "Sending important message, ttl: %d", ctx.send_ttl);
+    err = esp_ble_mesh_client_model_send_msg(client_model, &ctx, opcode, 
+        important_message_data_lengths[index], important_message_data_list[index], 
+        MSG_TIMEOUT, true, message_role);
+    
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to send important message to node addr 0x%04x, err_code %d", dst_address, err);
+        return;
+    }
+}
+
+int8_t get_important_message_index(uint32_t opcode) {
+    int8_t index = -1;
+    if (opcode == ECS_193_MODEL_OP_MESSAGE_I_0) {
+        index = 0;
+    } else if (opcode == ECS_193_MODEL_OP_MESSAGE_I_1) {
+        index = 1;
+    } else if (opcode == ECS_193_MODEL_OP_MESSAGE_I_2) {
+        index = 2;
+    }
+
+    return index;
+}
+
+// important_message_data_list[index] = (uint8_t*) malloc(length * sizeof(uint8_t));
+// important_message_data_lengths[index] = length;
+// important_message_retransmit_times[index] = 0;
+
+void retransmit_important_message(esp_ble_mesh_msg_ctx_t* ctx_ptr, uint32_t opcode, int8_t index) {
+    important_message_retransmit_times[index] += 1; // increment retransmit times count
+
+    if (important_message_retransmit_times[index] > 3) {
+        ESP_LOGW(TAG, "Error Index: [%d] for retransmiting important messasge", index);
+    }
+
+    // retransmit message
+    setNodeState(WORKING);
+    uint8_t tll_increment = important_message_retransmit_times[index] / 2; // add 1 more ttl per 2 times retransmit to limit ttl
+    ctx_ptr->send_ttl = ble_message_ttl + tll_increment;
+
+    esp_err_t err = ESP_OK;
+    err = esp_ble_mesh_client_model_send_msg(client_model, ctx_ptr, opcode, 
+        important_message_data_lengths[index], important_message_data_list[index], 
+        MSG_TIMEOUT, true, MSG_ROLE);
+    
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to retransmit important message to node addr 0x%04x, err_code %d", ctx_ptr->addr, err);
+        ESP_LOGI(TAG, "clearing important_message, index: %d", index);
+        clear_important_message(index);
+        return;
+    }
+}
+
+void clear_important_message(int8_t index) {
+    if (index < 0 || index > 2) {
+        ESP_LOGE(TAG, "Invaild index recived in clear_important_message(), index: %d", index);
+        return;
+    } else if (important_message_data_list[index] == NULL) {
+        ESP_LOGE(TAG, "Clearning an unused important message slot, index: %d", index);
+        return;
+    }
+
+    free(important_message_data_list[index]);
+
+    important_message_data_list[index] = NULL;
+    important_message_data_lengths[index] = 0;
+    important_message_retransmit_times[index] = 0;
+    ESP_LOGI(TAG, "Important_message slot cleared, index: %d", index);
+}
+
 void broadcast_message(uint16_t length, uint8_t *data_ptr)
 {
     esp_ble_mesh_msg_ctx_t ctx = {0};
@@ -378,24 +525,47 @@ void send_connectivity(uint16_t dst_address, uint16_t length, uint8_t *data_ptr)
     }
 }
 
-void send_response(esp_ble_mesh_msg_ctx_t *ctx, uint16_t length, uint8_t *data_ptr)
+void send_response(esp_ble_mesh_msg_ctx_t *ctx, uint16_t length, uint8_t *data_ptr, uint32_t message_opcode)
 {
-    uint32_t opcode = ECS_193_MODEL_OP_RESPONSE;
+    uint32_t response_opcode = ECS_193_MODEL_OP_RESPONSE;
+    switch (message_opcode)
+    {
+    case ECS_193_MODEL_OP_MESSAGE_R:
+        response_opcode = ECS_193_MODEL_OP_RESPONSE;
+        break;
+    case ECS_193_MODEL_OP_MESSAGE_I_0:
+        response_opcode = ECS_193_MODEL_OP_RESPONSE_I_0;
+        break;
+    case ECS_193_MODEL_OP_MESSAGE_I_1:
+        response_opcode = ECS_193_MODEL_OP_RESPONSE_I_1;
+        break;
+    case ECS_193_MODEL_OP_MESSAGE_I_2:
+        response_opcode = ECS_193_MODEL_OP_RESPONSE_I_2;
+        break;
+    case ECS_193_MODEL_OP_CONNECTIVITY:
+        response_opcode = ECS_193_MODEL_OP_RESPONSE;
+        break;
+
+    default:
+        ESP_LOGE(TAG, "send_response() met invaild Message_Opcode %" PRIu32 ", no corresponding Response_Opcode for it", message_opcode);
+        break;
+    }
+
     esp_err_t err;
 
+    ESP_LOGW(TAG, "response opcode: %" PRIu32, response_opcode);
     ESP_LOGW(TAG, "response net_idx: %" PRIu16, ctx->net_idx);
     ESP_LOGW(TAG, "response app_idx: %" PRIu16, ctx->app_idx);
     ESP_LOGW(TAG, "response addr: %" PRIu16, ctx->addr);
     ESP_LOGW(TAG, "response recv_dst: %" PRIu16, ctx->recv_dst);
 
-    err = esp_ble_mesh_server_model_send_msg(server_model, ctx, opcode, length, data_ptr);
+    err = esp_ble_mesh_server_model_send_msg(server_model, ctx, response_opcode, length, data_ptr);
     if (err != ESP_OK) {
-        ESP_LOGE(TAG, "Failed to send message to node addr 0x%04x, err_code %d", ctx->addr, err);
+        ESP_LOGE(TAG, "Failed to send response to node addr 0x%04x, err_code %d", ctx->addr, err);
         return;
     }
     
 }
-
 
 static esp_err_t config_complete(uint16_t node_addr) {
     config_complete_handler_cb(node_addr);
@@ -676,7 +846,7 @@ esp_err_t esp_module_edge_init(
     void (*prov_complete_handler)(uint16_t node_index, const esp_ble_mesh_octet16_t uuid, uint16_t addr, uint8_t element_num, uint16_t net_idx),
     void (*config_complete_handler)(uint16_t addr),
     void (*recv_message_handler)(esp_ble_mesh_msg_ctx_t *ctx, uint16_t length, uint8_t *msg_ptr, uint32_t opcode),
-    void (*recv_response_handler)(esp_ble_mesh_msg_ctx_t *ctx, uint16_t length, uint8_t *msg_ptr),
+    void (*recv_response_handler)(esp_ble_mesh_msg_ctx_t *ctx, uint16_t length, uint8_t *msg_ptr, uint32_t opcode),
     void (*timeout_handler)(esp_ble_mesh_msg_ctx_t *ctx, uint32_t opcode),
     void (*broadcast_handler)(esp_ble_mesh_msg_ctx_t *ctx, uint16_t length, uint8_t *msg_ptr),
     void (*connectivity_handler)(esp_ble_mesh_msg_ctx_t *ctx, uint16_t length, uint8_t *msg_ptr)
@@ -732,6 +902,14 @@ esp_err_t esp_module_edge_init(
     };
     ESP_ERROR_CHECK(esp_timer_create(&oneshot_timer_args, &oneshot_timer));
     ESP_ERROR_CHECK(esp_timer_start_once(oneshot_timer, 3000000));
+
+    if (important_message_data_list == NULL) {
+        important_message_data_list = (uint8_t**) malloc(3 * sizeof(uint8_t*));
+        for (int i=0; i<3; i++) {
+            important_message_data_list[i] = NULL;
+            important_message_retransmit_times[i] = 0;
+        }
+    }
 
     return ESP_OK;
 }

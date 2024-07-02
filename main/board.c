@@ -26,6 +26,7 @@ extern void printNetworkInfo();
 extern void create_data_send_event();
 extern void stop_data_send_event();
 extern void sendRobotRequest();
+extern void send_important_message(uint16_t dst_address, uint16_t length, uint8_t *data_ptr);
 
 clock_t start_time;
 bool timeout = false;
@@ -131,8 +132,11 @@ void board_ble_send_to_root(uint8_t *data_buffer, size_t data_length)
 static void button_tap_cb(void* arg)
 {
     ESP_LOGW(TAG_W, "button taped ------------------------- ");
-    ESP_LOGW(TAG_W, "sending robot reqyest------");
-    sendRobotRequest();
+    ESP_LOGW(TAG_W, "sending Important Message------");
+
+    char message[20] = "---Important---";
+    uint16_t message_length = strlen(message);
+    send_important_message(PROV_OWN_ADDR, message_length, (uint8_t*) message);
 }
 
 static void button_liong_press_cb(void *arg)
