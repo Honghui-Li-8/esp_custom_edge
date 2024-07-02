@@ -1,16 +1,17 @@
 #ifndef NETCONFIG_H
 #define NETCONFIG_H
 
+#define ENABLE 1
+#define DISABLE 0
+
 #define OPCODE_LEN 1
 #define NODE_ADDR_LEN 2  // can't change bc is base on esp
 #define NODE_UUID_LEN 16 // can't change bc is base on esp
 #define CMD_LEN 5        // network command length - 5 byte
 
-#define LOCAL_EDGE_DEVICE       1   // 1 to enable, 0 to disable local edge device
-                                    // handle the edge device job in esp-edge module itself
-                                    // Don't pass to UART anymore
-#define HEARTBEAT_TIMER         1   // 1 to enable, 0 to disable heartbeat timer
-#define TIMEOUT_TIMER           1   // 1 to enable, 0 to disable timeout timer
+#define LOCAL_EDGE_DEVICE   ENABLE  // enable/disable local edge device
+#define HEARTBEAT_TIMER     DISABLE  // enable/disable heartbeat timer
+#define TIMEOUT_TIMER       DISABLE  // enable/disable timeout timer for reset
 
 #define TAG_EDGE "EDGE"
 
