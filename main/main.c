@@ -12,11 +12,14 @@
 
 uint16_t node_own_addr = 0;
 
+/***************** Event Handler *****************/
+// prov_complete_handler() get triger when a new node is provitioned to the network
 static void prov_complete_handler(uint16_t node_index, const esp_ble_mesh_octet16_t uuid, uint16_t addr, uint8_t element_num, uint16_t net_idx) {
     ESP_LOGI(TAG_M, " ----------- prov_complete handler trigered -----------");
     setNodeState(CONNECTING);
 }
 
+// config_complete_handler() get triger when a new node is configured successfully after provitioning
 static void config_complete_handler(uint16_t addr) {
     ESP_LOGI(TAG_M,  " ----------- Node-0x%04x config_complete -----------", addr);
     node_own_addr = addr;
@@ -28,6 +31,7 @@ static void config_complete_handler(uint16_t addr) {
     uart_sendMsg(0, "[E] Module Configured");
 }
 
+// recv_message_handler() get triger when module recived an message
 static void recv_message_handler(esp_ble_mesh_msg_ctx_t *ctx, uint16_t length, uint8_t *msg_ptr, uint32_t opcode) {
     // ESP_LOGI(TAG_M, " ----------- recv_message handler trigered -----------");
     uint16_t node_addr = ctx->addr;
@@ -57,7 +61,7 @@ static void recv_message_handler(esp_ble_mesh_msg_ctx_t *ctx, uint16_t length, u
     ESP_LOGW(TAG_M, "<- Sended Response %d bytes \'%*s\'", response_length, response_length, (char *)response);
 }
 
-
+// recv_response_handler() get triger when module recived an response to previouse sent message that requires an response
 static void recv_response_handler(esp_ble_mesh_msg_ctx_t *ctx, uint16_t length, uint8_t *msg_ptr, uint32_t opcode) {
     // ESP_LOGI(TAG_M, " ----------- recv_response handler trigered -----------");
     ESP_LOGW(TAG_M, "-> Received Response %d bytes [%*s]\n", length , length, (char *)msg_ptr);
@@ -77,6 +81,7 @@ static void recv_response_handler(esp_ble_mesh_msg_ctx_t *ctx, uint16_t length, 
     }
 }
 
+// timeout_handler() get triger when module previously sent an message that requires response but didn't receive response
 static void timeout_handler(esp_ble_mesh_msg_ctx_t *ctx, uint32_t opcode) {
     ESP_LOGI(TAG_M, " ----------- timeout handler trigered -----------");
 
@@ -94,7 +99,7 @@ static void timeout_handler(esp_ble_mesh_msg_ctx_t *ctx, uint32_t opcode) {
     #endif
 }
 
-//Create a new handler to handle broadcasting
+// broadcast_handler() get triger when module recived an broadcast message
 static void broadcast_handler(esp_ble_mesh_msg_ctx_t *ctx, uint16_t length, uint8_t *msg_ptr)
 {
     if (ctx->addr == node_own_addr)
@@ -110,6 +115,7 @@ static void broadcast_handler(esp_ble_mesh_msg_ctx_t *ctx, uint16_t length, uint
     uart_sendData(node_addr, msg_ptr, length);
 }
 
+// connectivity_handler() get triger when module recived an connectivity check message (heartbeat message)
 static void connectivity_handler(esp_ble_mesh_msg_ctx_t *ctx, uint16_t length, uint8_t *msg_ptr) {
     ESP_LOGI(TAG_M, "----- Connectivity Handler Triggered -----\n");
 
@@ -118,6 +124,7 @@ static void connectivity_handler(esp_ble_mesh_msg_ctx_t *ctx, uint16_t length, u
     send_response(ctx, response_length, (uint8_t *)response, ECS_193_MODEL_OP_CONNECTIVITY);
 }
 
+/***************** Other Functions *****************/
 static void execute_uart_command(char *command, size_t cmd_total_len) {
     // size_t cmd_len_raw = cmd_len;
 
