@@ -16,7 +16,6 @@
 #define TAG TAG_EDGE
 #define TAG_W "Debug"
 #define TAG_INFO "Net_Info"
-#define timer_for_ping 10000000 //10 seconds for pinging root to check conectivity
 
 enum State nodeState = DISCONNECTED;
 esp_timer_handle_t periodic_timer;

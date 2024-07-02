@@ -18,10 +18,11 @@
 #define _BLE_EDGE_H_
 
 void loop_message_connection();
-enum State getNodeState();
-void setNodeState(enum State);
 void stop_esp_timer();
 void stop_periodic_timer();
+enum State getNodeState();
+void setNodeState(enum State);
+
 void set_message_ttl(uint8_t new_ttl);
 void send_message(uint16_t dst_address, uint16_t length, uint8_t *data_ptr, bool require_response);
 // vvv important message functions

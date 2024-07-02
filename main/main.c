@@ -22,7 +22,9 @@ static void config_complete_handler(uint16_t addr) {
     node_own_addr = addr;
     setNodeState(CONNECTED);
     // pinging Root checking connectivity
-    loop_message_connection();
+    #if HEARTBEAT_TIMER
+        loop_message_connection();
+    #endif
     uart_sendMsg(0, "[E] Module Configured");
 }
 
@@ -36,6 +38,11 @@ static void recv_message_handler(esp_ble_mesh_msg_ctx_t *ctx, uint16_t length, u
     // recived a ble-message from edge ndoe
     uart_sendData(node_addr, msg_ptr, length);
 
+    // clear edge reset timeout
+    #if TIMEOUT_TIMER
+        setTimeout(false);
+    #endif
+    // stop_timer();
 
     // check if needs an response to confirm recived
     if (opcode == ECS_193_MODEL_OP_MESSAGE) {
@@ -56,7 +63,9 @@ static void recv_response_handler(esp_ble_mesh_msg_ctx_t *ctx, uint16_t length, 
     ESP_LOGW(TAG_M, "-> Received Response %d bytes [%*s]\n", length , length, (char *)msg_ptr);
 
     // message went through, clear edge reset timeout
-    setTimeout(false);
+    #if TIMEOUT_TIMER
+        setTimeout(false);
+    #endif
     // stop_timer();
 
     // clear confirmed recived important message
@@ -80,23 +89,9 @@ static void timeout_handler(esp_ble_mesh_msg_ctx_t *ctx, uint32_t opcode) {
 
     // check for edge restart when mutiple timeout happened
     // Print the current value of timeout
-    bool currentTimeout = getTimeout();
-    ESP_LOGI(TAG_M, " Current timeout value: %s", currentTimeout ? "true" : "false");
-
-    if(!currentTimeout) {
-        ESP_LOGI(TAG_M, "Keep the first timeout time...");
-        startTimer();
-        setTimeout(true);
-    }
-    else if(getTimeElapsed() > 20.0) // that means timeout already happened once -- and if timeout persist for 20 seconds then reset itself.
-    {
-        // stop_timer(); //for timer_h
-        ESP_LOGI(TAG_M, "Edge not able to connect to root, Resetting the Edge Module "); //i should make a one-hit timer just before resetting.
-
-        reset_edge();
-        // reset_esp32();
-    }
-
+    #if TIMEOUT_TIMER
+        handleConnectionTimeout();
+    #endif
 }
 
 //Create a new handler to handle broadcasting
@@ -210,7 +205,7 @@ static void execute_uart_command(char *command, size_t cmd_total_len) {
 }
 
 void execute_network_command(char *command, size_t cmd_total_len) {
-#ifdef LOCAL_EDGE_DEVICE_ENABLED
+#if LOCAL_EDGE_DEVICE
     // meant to be only used by local_edge_device
     execute_uart_command(command, cmd_total_len);
 #endif
@@ -279,7 +274,7 @@ void app_main(void)
     // turn off log - Important, bc the server counting on uart escape byte 0xff and 0xfe
     //              - So need to enforce all uart signal
     //              - use uart_sendMsg or uart_sendData for message, the esp_log for dev debug
-    // Edge Module is fine since is using uart pin, seperate from usb-uart logging channle
+    // Edge Module is fine since is using uart pin, seperate from usb-uart logging channel
     // esp_log_level_set(TAG_ALL, ESP_LOG_NONE);
     // uart_sendMsg(0, "[UART] Turning off all Log's from esp_log\n");
 
