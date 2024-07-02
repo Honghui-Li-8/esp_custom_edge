@@ -133,11 +133,30 @@ void board_ble_send_to_root(uint8_t *data_buffer, size_t data_length)
 static void button_tap_cb(void* arg)
 {
     ESP_LOGW(TAG_W, "button taped ------------------------- ");
-    ESP_LOGW(TAG_W, "sending Important Message------");
+    static int control = 0;
 
     char message[20] = "---Important---";
+    char message_2[20] = "---Normal---";
+    
     uint16_t message_length = strlen(message);
-    send_important_message(PROV_OWN_ADDR, message_length, (uint8_t*) message);
+    uint16_t message_2_length = strlen(message_2);
+
+    if (control < 2) {
+        ESP_LOGE(TAG_W, "=== Normal Message === [%d]", control);
+        send_message(PROV_OWN_ADDR, message_2_length, (uint8_t*) message_2, false);
+        control += 1;
+    } else if (control == 2) {
+        ESP_LOGE(TAG_W, "=== Important Message === [%d]", control);
+        send_important_message(PROV_OWN_ADDR, message_length, (uint8_t*) message);
+        control += 1;
+    } else if (control < 5) {
+        ESP_LOGE(TAG_W, "=== Normal Message === [%d]", control);
+        send_message(PROV_OWN_ADDR, message_2_length, (uint8_t*) message_2, false);
+        control += 1;
+    } else {
+        control = 0;
+        ESP_LOGE(TAG_W, "=== Reset Control === [%d]", control);
+    }
 }
 
 static void button_liong_press_cb(void *arg)
