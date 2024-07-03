@@ -260,6 +260,46 @@ static esp_err_t custom_model_bind_appkey(uint16_t app_idx) {
     // return example_set_app_idx_to_user_data(app_idx);
 }
 
+static void example_ble_mesh_config_server_cb(esp_ble_mesh_cfg_server_cb_event_t event,
+                                              esp_ble_mesh_cfg_server_cb_param_t *param)
+{
+    if (event == ESP_BLE_MESH_CFG_SERVER_STATE_CHANGE_EVT) {
+        switch (param->ctx.recv_op) {
+        case ESP_BLE_MESH_MODEL_OP_APP_KEY_ADD:
+            ESP_LOGI(TAG, "ESP_BLE_MESH_MODEL_OP_APP_KEY_ADD");
+            ESP_LOGI(TAG, "net_idx 0x%04x, app_idx 0x%04x",
+                param->value.state_change.appkey_add.net_idx,
+                param->value.state_change.appkey_add.app_idx);
+            ESP_LOG_BUFFER_HEX("AppKey", param->value.state_change.appkey_add.app_key, 16);
+
+            custom_model_bind_appkey(param->value.state_change.appkey_add.app_idx);
+            ble_mesh_key.app_idx = param->value.state_change.mod_app_bind.app_idx;
+            break;
+        case ESP_BLE_MESH_MODEL_OP_MODEL_APP_BIND:
+            ESP_LOGI(TAG, "ESP_BLE_MESH_MODEL_OP_MODEL_APP_BIND");
+            ESP_LOGI(TAG, "elem_addr 0x%04x, app_idx 0x%04x, cid 0x%04x, mod_id 0x%04x",
+                param->value.state_change.mod_app_bind.element_addr,
+                param->value.state_change.mod_app_bind.app_idx,
+                param->value.state_change.mod_app_bind.company_id,
+                param->value.state_change.mod_app_bind.model_id);
+
+            ble_mesh_key.app_idx = param->value.state_change.mod_app_bind.app_idx;
+            config_complete(param->value.state_change.mod_app_bind.element_addr);
+            break;
+        case ESP_BLE_MESH_MODEL_OP_MODEL_SUB_ADD:
+            ESP_LOGI(TAG, "ESP_BLE_MESH_MODEL_OP_MODEL_SUB_ADD");
+            ESP_LOGI(TAG, "elem_addr 0x%04x, sub_addr 0x%04x, cid 0x%04x, mod_id 0x%04x",
+                param->value.state_change.mod_sub_add.element_addr,
+                param->value.state_change.mod_sub_add.sub_addr,
+                param->value.state_change.mod_sub_add.company_id,
+                param->value.state_change.mod_sub_add.model_id);
+            break;
+        default:
+            break;
+        }
+    }
+}
+
 // Custom Model callback logic
 static void ble_mesh_custom_model_cb(esp_ble_mesh_model_cb_event_t event, esp_ble_mesh_model_cb_param_t *param)
 {
@@ -330,7 +370,127 @@ static void ble_mesh_custom_model_cb(esp_ble_mesh_model_cb_event_t event, esp_bl
     }
 }
 
-// ===================== EDGE Network Utility Functions =====================
+// ========================= Remote Provisioning Status Printing function ==================================
+static void print_scan_start_evt(esp_ble_mesh_rpr_server_cb_param_t *param)
+{
+    ESP_LOGI(TAG, "scan_start, element_idx 0x%02x", param->scan_start.model->element_idx);
+    ESP_LOGI(TAG, "scan_start, model_idx 0x%02x", param->scan_start.model->model_idx);
+    ESP_LOGI(TAG, "scan_start, scan_items_limit 0x%02x", param->scan_start.scan_items_limit);
+    ESP_LOGI(TAG, "scan_start, timeout 0x%02x", param->scan_start.timeout);
+    ESP_LOGI(TAG, "scan_start, net_idx 0x%04x", param->scan_start.net_idx);
+    ESP_LOGI(TAG, "scan_start, rpr_cli_addr 0x%04x", param->scan_start.rpr_cli_addr);
+    ESP_LOG_BUFFER_HEX("CMD_RP: scan_start, uuid", param->scan_start.uuid, 16);
+}
+
+static void print_scan_stop_evt(esp_ble_mesh_rpr_server_cb_param_t *param)
+{
+    ESP_LOGI(TAG, "scan_stop, element_idx 0x%02x", param->scan_stop.model->element_idx);
+    ESP_LOGI(TAG, "scan_stop, model_idx 0x%02x", param->scan_stop.model->model_idx);
+    ESP_LOGI(TAG, "scan_stop, net_idx 0x%04x", param->scan_stop.net_idx);
+    ESP_LOGI(TAG, "scan_stop, rpr_cli_addr 0x%04x", param->scan_stop.rpr_cli_addr);
+    ESP_LOG_BUFFER_HEX("CMD_RP: scan_stop, uuid", param->scan_stop.uuid, 16);
+}
+
+static void print_ext_scan_start_evt(esp_ble_mesh_rpr_server_cb_param_t *param)
+{
+    ESP_LOGI(TAG, "ext_scan_start, element_idx 0x%02x", param->ext_scan_start.model->element_idx);
+    ESP_LOGI(TAG, "ext_scan_start, model_idx 0x%02x", param->ext_scan_start.model->model_idx);
+    if (param->ext_scan_start.ad_type_filter_count && param->ext_scan_start.ad_type_filter) {
+        ESP_LOG_BUFFER_HEX("CMD_RP: ext_scan_start, ad_type_filter",
+                           param->ext_scan_start.ad_type_filter,
+                           param->ext_scan_start.ad_type_filter_count);
+    }
+    ESP_LOGI(TAG, "ext_scan_start, timeout 0x%02x", param->ext_scan_start.timeout);
+    ESP_LOGI(TAG, "ext_scan_start, index 0x%02x", param->ext_scan_start.index);
+    ESP_LOGI(TAG, "ext_scan_start, net_idx 0x%04x", param->ext_scan_start.net_idx);
+    ESP_LOGI(TAG, "ext_scan_start, rpr_cli_addr 0x%04x", param->ext_scan_start.rpr_cli_addr);
+    ESP_LOG_BUFFER_HEX("CMD_RP: ext_scan_start, uuid", param->ext_scan_start.uuid, 16);
+}
+
+static void print_ext_scan_stop_evt(esp_ble_mesh_rpr_server_cb_param_t *param)
+{
+    ESP_LOGI(TAG, "ext_scan_stop, element_idx 0x%02x", param->ext_scan_stop.model->element_idx);
+    ESP_LOGI(TAG, "ext_scan_stop, model_idx 0x%02x", param->ext_scan_stop.model->model_idx);
+    ESP_LOGI(TAG, "ext_scan_stop, timeout 0x%02x", param->ext_scan_stop.timeout);
+    ESP_LOGI(TAG, "ext_scan_stop, index 0x%02x", param->ext_scan_stop.index);
+    ESP_LOGI(TAG, "ext_scan_stop, net_idx 0x%04x", param->ext_scan_stop.net_idx);
+    ESP_LOGI(TAG, "ext_scan_stop, rpr_cli_addr 0x%04x", param->ext_scan_stop.rpr_cli_addr);
+    ESP_LOG_BUFFER_HEX("CMD_RP: ext_scan_stop, uuid", param->ext_scan_stop.uuid, 16);
+}
+
+static void print_link_open_evt(esp_ble_mesh_rpr_server_cb_param_t *param)
+{
+    ESP_LOGI(TAG, "link_open, element_idx 0x%02x", param->link_open.model->element_idx);
+    ESP_LOGI(TAG, "link_open, model_idx 0x%02x", param->link_open.model->model_idx);
+    ESP_LOGI(TAG, "link_open, status 0x%02x", param->link_open.status);
+    ESP_LOGI(TAG, "link_open, timeout 0x%02x", param->link_open.timeout);
+    ESP_LOGI(TAG, "link_open, nppi 0x%02x", param->link_open.nppi);
+    ESP_LOGI(TAG, "link_open, net_idx 0x%04x", param->link_open.net_idx);
+    ESP_LOGI(TAG, "link_open, rpr_cli_addr 0x%04x", param->link_open.rpr_cli_addr);
+    ESP_LOG_BUFFER_HEX("CMD_RP: link_open, uuid", param->link_open.uuid, 16);
+}
+
+static void print_link_close_evt(esp_ble_mesh_rpr_server_cb_param_t *param)
+{
+    ESP_LOGI(TAG, "link_close, element_idx 0x%02x", param->link_close.model->element_idx);
+    ESP_LOGI(TAG, "link_close, model_idx 0x%02x", param->link_close.model->model_idx);
+    ESP_LOGI(TAG, "link_close, nppi 0x%02x", param->link_close.nppi);
+    ESP_LOGI(TAG, "link_close, close_by_device %d", param->link_close.close_by_device);
+    ESP_LOGI(TAG, "link_close, reason 0x%02x", param->link_close.reason);
+    ESP_LOGI(TAG, "link_close, net_idx 0x%04x", param->link_close.net_idx);
+    ESP_LOGI(TAG, "link_close, rpr_cli_addr 0x%04x", param->link_close.rpr_cli_addr);
+    ESP_LOG_BUFFER_HEX("CMD_RP: link_close, uuid", param->link_close.uuid, 16);
+}
+
+static void print_prov_comp_evt(esp_ble_mesh_rpr_server_cb_param_t *param)
+{
+    ESP_LOGI(TAG, "prov_comp, element_idx 0x%02x", param->prov_comp.model->element_idx);
+    ESP_LOGI(TAG, "prov_comp, model_idx 0x%02x", param->prov_comp.model->model_idx);
+    ESP_LOGI(TAG, "prov_comp, nppi 0x%02x", param->prov_comp.nppi);
+    ESP_LOGI(TAG, "prov_comp, net_idx 0x%04x", param->prov_comp.net_idx);
+    ESP_LOGI(TAG, "prov_comp, rpr_cli_addr 0x%04x", param->prov_comp.rpr_cli_addr);
+    ESP_LOG_BUFFER_HEX("CMD_RP: prov_comp, uuid", param->prov_comp.uuid, 16);
+}
+
+// ========================= Remote Provisioning Callback function ==================================
+static void example_remote_prov_server_callback(esp_ble_mesh_rpr_server_cb_event_t event,
+                                                esp_ble_mesh_rpr_server_cb_param_t *param)
+{
+    switch (event) {
+    case ESP_BLE_MESH_RPR_SERVER_SCAN_START_EVT:
+        ESP_LOGW(TAG, "ESP_BLE_MESH_RPR_SERVER_SCAN_START_EVT");
+        print_scan_start_evt(param);
+        break;
+    case ESP_BLE_MESH_RPR_SERVER_SCAN_STOP_EVT:
+        ESP_LOGW(TAG, "ESP_BLE_MESH_RPR_SERVER_SCAN_STOP_EVT");
+        print_scan_stop_evt(param);
+        break;
+    case ESP_BLE_MESH_RPR_SERVER_EXT_SCAN_START_EVT:
+        ESP_LOGW(TAG, "ESP_BLE_MESH_RPR_SERVER_EXT_SCAN_START_EVT");
+        print_ext_scan_start_evt(param);
+        break;
+    case ESP_BLE_MESH_RPR_SERVER_EXT_SCAN_STOP_EVT:
+        ESP_LOGW(TAG, "ESP_BLE_MESH_RPR_SERVER_EXT_SCAN_STOP_EVT");
+        print_ext_scan_stop_evt(param);
+        break;
+    case ESP_BLE_MESH_RPR_SERVER_LINK_OPEN_EVT:
+        ESP_LOGW(TAG, "ESP_BLE_MESH_RPR_SERVER_LINK_OPEN_EVT");
+        print_link_open_evt(param);
+        break;
+    case ESP_BLE_MESH_RPR_SERVER_LINK_CLOSE_EVT:
+        ESP_LOGW(TAG, "ESP_BLE_MESH_RPR_SERVER_LINK_CLOSE_EVT");
+        print_link_close_evt(param);
+        break;
+    case ESP_BLE_MESH_RPR_SERVER_PROV_COMP_EVT:
+        ESP_LOGW(TAG, "ESP_BLE_MESH_RPR_SERVER_PROV_COMP_EVT");
+        print_prov_comp_evt(param);
+        break;
+    default:
+        break;
+    }
+}
+
+// ===================== EDGE Network Utility Functions (APIs) =====================
 void set_message_ttl(uint8_t new_ttl) {
     ESP_LOGW(TAG, " === Updated message ttl on edge %d ===", new_ttl);
     ble_message_ttl = new_ttl;
@@ -620,165 +780,6 @@ void stop_esp_timer() {
 void stop_periodic_timer() {
     ESP_ERROR_CHECK(esp_timer_stop(periodic_timer));
     ESP_ERROR_CHECK(esp_timer_delete(periodic_timer));
-}
-// ========================= our function ==================================
-
-static void example_ble_mesh_config_server_cb(esp_ble_mesh_cfg_server_cb_event_t event,
-                                              esp_ble_mesh_cfg_server_cb_param_t *param)
-{
-    if (event == ESP_BLE_MESH_CFG_SERVER_STATE_CHANGE_EVT) {
-        switch (param->ctx.recv_op) {
-        case ESP_BLE_MESH_MODEL_OP_APP_KEY_ADD:
-            ESP_LOGI(TAG, "ESP_BLE_MESH_MODEL_OP_APP_KEY_ADD");
-            ESP_LOGI(TAG, "net_idx 0x%04x, app_idx 0x%04x",
-                param->value.state_change.appkey_add.net_idx,
-                param->value.state_change.appkey_add.app_idx);
-            ESP_LOG_BUFFER_HEX("AppKey", param->value.state_change.appkey_add.app_key, 16);
-
-            custom_model_bind_appkey(param->value.state_change.appkey_add.app_idx);
-            ble_mesh_key.app_idx = param->value.state_change.mod_app_bind.app_idx;
-            break;
-        case ESP_BLE_MESH_MODEL_OP_MODEL_APP_BIND:
-            ESP_LOGI(TAG, "ESP_BLE_MESH_MODEL_OP_MODEL_APP_BIND");
-            ESP_LOGI(TAG, "elem_addr 0x%04x, app_idx 0x%04x, cid 0x%04x, mod_id 0x%04x",
-                param->value.state_change.mod_app_bind.element_addr,
-                param->value.state_change.mod_app_bind.app_idx,
-                param->value.state_change.mod_app_bind.company_id,
-                param->value.state_change.mod_app_bind.model_id);
-
-            ble_mesh_key.app_idx = param->value.state_change.mod_app_bind.app_idx;
-            config_complete(param->value.state_change.mod_app_bind.element_addr);
-            break;
-        case ESP_BLE_MESH_MODEL_OP_MODEL_SUB_ADD:
-            ESP_LOGI(TAG, "ESP_BLE_MESH_MODEL_OP_MODEL_SUB_ADD");
-            ESP_LOGI(TAG, "elem_addr 0x%04x, sub_addr 0x%04x, cid 0x%04x, mod_id 0x%04x",
-                param->value.state_change.mod_sub_add.element_addr,
-                param->value.state_change.mod_sub_add.sub_addr,
-                param->value.state_change.mod_sub_add.company_id,
-                param->value.state_change.mod_sub_add.model_id);
-            break;
-        default:
-            break;
-        }
-    }
-}
-
-static void print_scan_start_evt(esp_ble_mesh_rpr_server_cb_param_t *param)
-{
-    ESP_LOGI(TAG, "scan_start, element_idx 0x%02x", param->scan_start.model->element_idx);
-    ESP_LOGI(TAG, "scan_start, model_idx 0x%02x", param->scan_start.model->model_idx);
-    ESP_LOGI(TAG, "scan_start, scan_items_limit 0x%02x", param->scan_start.scan_items_limit);
-    ESP_LOGI(TAG, "scan_start, timeout 0x%02x", param->scan_start.timeout);
-    ESP_LOGI(TAG, "scan_start, net_idx 0x%04x", param->scan_start.net_idx);
-    ESP_LOGI(TAG, "scan_start, rpr_cli_addr 0x%04x", param->scan_start.rpr_cli_addr);
-    ESP_LOG_BUFFER_HEX("CMD_RP: scan_start, uuid", param->scan_start.uuid, 16);
-}
-
-static void print_scan_stop_evt(esp_ble_mesh_rpr_server_cb_param_t *param)
-{
-    ESP_LOGI(TAG, "scan_stop, element_idx 0x%02x", param->scan_stop.model->element_idx);
-    ESP_LOGI(TAG, "scan_stop, model_idx 0x%02x", param->scan_stop.model->model_idx);
-    ESP_LOGI(TAG, "scan_stop, net_idx 0x%04x", param->scan_stop.net_idx);
-    ESP_LOGI(TAG, "scan_stop, rpr_cli_addr 0x%04x", param->scan_stop.rpr_cli_addr);
-    ESP_LOG_BUFFER_HEX("CMD_RP: scan_stop, uuid", param->scan_stop.uuid, 16);
-}
-
-static void print_ext_scan_start_evt(esp_ble_mesh_rpr_server_cb_param_t *param)
-{
-    ESP_LOGI(TAG, "ext_scan_start, element_idx 0x%02x", param->ext_scan_start.model->element_idx);
-    ESP_LOGI(TAG, "ext_scan_start, model_idx 0x%02x", param->ext_scan_start.model->model_idx);
-    if (param->ext_scan_start.ad_type_filter_count && param->ext_scan_start.ad_type_filter) {
-        ESP_LOG_BUFFER_HEX("CMD_RP: ext_scan_start, ad_type_filter",
-                           param->ext_scan_start.ad_type_filter,
-                           param->ext_scan_start.ad_type_filter_count);
-    }
-    ESP_LOGI(TAG, "ext_scan_start, timeout 0x%02x", param->ext_scan_start.timeout);
-    ESP_LOGI(TAG, "ext_scan_start, index 0x%02x", param->ext_scan_start.index);
-    ESP_LOGI(TAG, "ext_scan_start, net_idx 0x%04x", param->ext_scan_start.net_idx);
-    ESP_LOGI(TAG, "ext_scan_start, rpr_cli_addr 0x%04x", param->ext_scan_start.rpr_cli_addr);
-    ESP_LOG_BUFFER_HEX("CMD_RP: ext_scan_start, uuid", param->ext_scan_start.uuid, 16);
-}
-
-static void print_ext_scan_stop_evt(esp_ble_mesh_rpr_server_cb_param_t *param)
-{
-    ESP_LOGI(TAG, "ext_scan_stop, element_idx 0x%02x", param->ext_scan_stop.model->element_idx);
-    ESP_LOGI(TAG, "ext_scan_stop, model_idx 0x%02x", param->ext_scan_stop.model->model_idx);
-    ESP_LOGI(TAG, "ext_scan_stop, timeout 0x%02x", param->ext_scan_stop.timeout);
-    ESP_LOGI(TAG, "ext_scan_stop, index 0x%02x", param->ext_scan_stop.index);
-    ESP_LOGI(TAG, "ext_scan_stop, net_idx 0x%04x", param->ext_scan_stop.net_idx);
-    ESP_LOGI(TAG, "ext_scan_stop, rpr_cli_addr 0x%04x", param->ext_scan_stop.rpr_cli_addr);
-    ESP_LOG_BUFFER_HEX("CMD_RP: ext_scan_stop, uuid", param->ext_scan_stop.uuid, 16);
-}
-
-static void print_link_open_evt(esp_ble_mesh_rpr_server_cb_param_t *param)
-{
-    ESP_LOGI(TAG, "link_open, element_idx 0x%02x", param->link_open.model->element_idx);
-    ESP_LOGI(TAG, "link_open, model_idx 0x%02x", param->link_open.model->model_idx);
-    ESP_LOGI(TAG, "link_open, status 0x%02x", param->link_open.status);
-    ESP_LOGI(TAG, "link_open, timeout 0x%02x", param->link_open.timeout);
-    ESP_LOGI(TAG, "link_open, nppi 0x%02x", param->link_open.nppi);
-    ESP_LOGI(TAG, "link_open, net_idx 0x%04x", param->link_open.net_idx);
-    ESP_LOGI(TAG, "link_open, rpr_cli_addr 0x%04x", param->link_open.rpr_cli_addr);
-    ESP_LOG_BUFFER_HEX("CMD_RP: link_open, uuid", param->link_open.uuid, 16);
-}
-
-static void print_link_close_evt(esp_ble_mesh_rpr_server_cb_param_t *param)
-{
-    ESP_LOGI(TAG, "link_close, element_idx 0x%02x", param->link_close.model->element_idx);
-    ESP_LOGI(TAG, "link_close, model_idx 0x%02x", param->link_close.model->model_idx);
-    ESP_LOGI(TAG, "link_close, nppi 0x%02x", param->link_close.nppi);
-    ESP_LOGI(TAG, "link_close, close_by_device %d", param->link_close.close_by_device);
-    ESP_LOGI(TAG, "link_close, reason 0x%02x", param->link_close.reason);
-    ESP_LOGI(TAG, "link_close, net_idx 0x%04x", param->link_close.net_idx);
-    ESP_LOGI(TAG, "link_close, rpr_cli_addr 0x%04x", param->link_close.rpr_cli_addr);
-    ESP_LOG_BUFFER_HEX("CMD_RP: link_close, uuid", param->link_close.uuid, 16);
-}
-
-static void print_prov_comp_evt(esp_ble_mesh_rpr_server_cb_param_t *param)
-{
-    ESP_LOGI(TAG, "prov_comp, element_idx 0x%02x", param->prov_comp.model->element_idx);
-    ESP_LOGI(TAG, "prov_comp, model_idx 0x%02x", param->prov_comp.model->model_idx);
-    ESP_LOGI(TAG, "prov_comp, nppi 0x%02x", param->prov_comp.nppi);
-    ESP_LOGI(TAG, "prov_comp, net_idx 0x%04x", param->prov_comp.net_idx);
-    ESP_LOGI(TAG, "prov_comp, rpr_cli_addr 0x%04x", param->prov_comp.rpr_cli_addr);
-    ESP_LOG_BUFFER_HEX("CMD_RP: prov_comp, uuid", param->prov_comp.uuid, 16);
-}
-
-static void example_remote_prov_server_callback(esp_ble_mesh_rpr_server_cb_event_t event,
-                                                esp_ble_mesh_rpr_server_cb_param_t *param)
-{
-    switch (event) {
-    case ESP_BLE_MESH_RPR_SERVER_SCAN_START_EVT:
-        ESP_LOGW(TAG, "ESP_BLE_MESH_RPR_SERVER_SCAN_START_EVT");
-        print_scan_start_evt(param);
-        break;
-    case ESP_BLE_MESH_RPR_SERVER_SCAN_STOP_EVT:
-        ESP_LOGW(TAG, "ESP_BLE_MESH_RPR_SERVER_SCAN_STOP_EVT");
-        print_scan_stop_evt(param);
-        break;
-    case ESP_BLE_MESH_RPR_SERVER_EXT_SCAN_START_EVT:
-        ESP_LOGW(TAG, "ESP_BLE_MESH_RPR_SERVER_EXT_SCAN_START_EVT");
-        print_ext_scan_start_evt(param);
-        break;
-    case ESP_BLE_MESH_RPR_SERVER_EXT_SCAN_STOP_EVT:
-        ESP_LOGW(TAG, "ESP_BLE_MESH_RPR_SERVER_EXT_SCAN_STOP_EVT");
-        print_ext_scan_stop_evt(param);
-        break;
-    case ESP_BLE_MESH_RPR_SERVER_LINK_OPEN_EVT:
-        ESP_LOGW(TAG, "ESP_BLE_MESH_RPR_SERVER_LINK_OPEN_EVT");
-        print_link_open_evt(param);
-        break;
-    case ESP_BLE_MESH_RPR_SERVER_LINK_CLOSE_EVT:
-        ESP_LOGW(TAG, "ESP_BLE_MESH_RPR_SERVER_LINK_CLOSE_EVT");
-        print_link_close_evt(param);
-        break;
-    case ESP_BLE_MESH_RPR_SERVER_PROV_COMP_EVT:
-        ESP_LOGW(TAG, "ESP_BLE_MESH_RPR_SERVER_PROV_COMP_EVT");
-        print_prov_comp_evt(param);
-        break;
-    default:
-        break;
-    }
 }
 
 static esp_err_t ble_mesh_init(void)
