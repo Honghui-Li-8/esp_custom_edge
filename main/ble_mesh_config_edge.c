@@ -834,7 +834,7 @@ void reset_esp32()
     uart_sendMsg(0, "Persistent Memory Reseted, Should Restart Module Later\n");
 }
 
-void reset_edge()
+void restart_edge()
 {
     // order edge module to restart since network is about to get refreshed
     stop_esp_timer();
