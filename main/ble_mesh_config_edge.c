@@ -9,6 +9,7 @@
 #include "../Secret/NetworkConfig.h"
 
 #include "esp_ble_mesh_local_data_operation_api.h"
+
 #if CONFIG_BLE_MESH_RPR_SRV
 #include "esp_ble_mesh_rpr_model_api.h"
 #endif
@@ -131,7 +132,6 @@ static esp_ble_mesh_comp_t composition = { // composition of current module
     .elements = elements,
     .element_count = ARRAY_SIZE(elements),
 };
-
 
 // ================= application level callback functions =================
 static void (*prov_complete_handler_cb)(uint16_t node_index, const esp_ble_mesh_octet16_t uuid, uint16_t addr, uint8_t element_num, uint16_t net_idx) = NULL;
