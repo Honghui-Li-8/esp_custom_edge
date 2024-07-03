@@ -99,52 +99,63 @@ void setLEDState(enum State state);
  */
 void handleConnectionTimeout();
 
-
+/**
+ * @brief Initialize the board.
+ */
 void board_init(void);
+
+/**
+ * @brief Operate the board's LED with specified RGB values.
+ * 
+ * @param r Red value (0-255).
+ * @param g Green value (0-255).
+ * @param b Blue value (0-255).
+ */
 void board_led_operation(uint8_t r, uint8_t g, uint8_t b);
+
+/**
+ * @brief Write encoded bytes to a UART port.
+ * 
+ * @param uart_num UART port number.
+ * @param data Pointer to the data to be written.
+ * @param length Length of the data.
+ * @return Status of the write operation.
+ */
 int uart_write_encoded_bytes(uart_port_t uart_num, uint8_t* data, size_t length);
+
+/**
+ * @brief Decode bytes from the provided data.
+ * 
+ * @param data Pointer to the encoded data.
+ * @param length Length of the encoded data.
+ * @param decoded_data Pointer to the buffer for the decoded data.
+ * @return Status of the decode operation.
+ */
 int uart_decoded_bytes(uint8_t* data, size_t length, uint8_t* decoded_data);
+
+/**
+ * @brief Send data to a specific node address over UART.
+ * 
+ * @param node_addr Node address to send the data to.
+ * @param data Pointer to the data to be sent.
+ * @param length Length of the data.
+ * @return Status of the send operation.
+ */
 int uart_sendData(uint16_t node_addr, uint8_t* data, size_t length);
+
+/**
+ * @brief Send a message to a specific node address over UART.
+ * 
+ * @param node_addr Node address to send the message to.
+ * @param msg Pointer to the message to be sent.
+ * @return Status of the send operation.
+ */
 int uart_sendMsg(uint16_t node_addr, char* msg);
 
-#if defined(CONFIG_BLE_MESH_ESP_WROOM_32)
-#define LED_R GPIO_NUM_25
-#define LED_G GPIO_NUM_26
-#define LED_B GPIO_NUM_27
-#elif defined(CONFIG_BLE_MESH_ESP_WROVER)
-#define LED_R GPIO_NUM_0
-#define LED_G GPIO_NUM_2
-#define LED_B GPIO_NUM_4
-#elif defined(CONFIG_BLE_MESH_ESP32C3_DEV)
-#define LED_R GPIO_NUM_8
-#define LED_G GPIO_NUM_8
-#define LED_B GPIO_NUM_8
-#elif defined(CONFIG_BLE_MESH_ESP32S3_DEV)
-#define LED_R GPIO_NUM_47
-#define LED_G GPIO_NUM_47
-#define LED_B GPIO_NUM_47
-#elif defined(CONFIG_BLE_MESH_ESP32C6_DEV)
-#define LED_R GPIO_NUM_8
-#define LED_G GPIO_NUM_8
-#define LED_B GPIO_NUM_8
-#elif defined(CONFIG_BLE_MESH_ESP32H2_DEV)
+#if defined(CONFIG_BLE_MESH_ESP32H2_DEV)
 #define LED_R GPIO_NUM_8
 #define LED_G GPIO_NUM_8
 #define LED_B GPIO_NUM_8
 #endif
-
-// #define LED_ON  1
-// #define LED_OFF 0
-
-// struct _led_state {
-//     uint8_t current;
-//     uint8_t previous;
-//     uint8_t pin;
-//     char *name;
-// };
-
-// void board_led_operation(uint8_t pin, uint8_t onoff);
-
-// void board_init(void);
 
 #endif

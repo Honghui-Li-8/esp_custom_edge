@@ -8,7 +8,8 @@
     "ble_mesh_example_nvs.h": "c",
     "random": "c",
     "ble_mesh_config_root.h": "c",
-    "iot_button.h": "c"
+    "iot_button.h": "c",
+    "esp_ble_mesh_rpr_model_api.h": "c"
   },
   "idf.portWin": "COM21",
   "idf.flashType": "UART",
