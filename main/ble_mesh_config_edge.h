@@ -23,9 +23,6 @@
 void loop_message_connection();
 
 /**
-<<<<<<< HEAD
- * @brief set the message ttl for current module.
-=======
  * @brief Stop the ESP timer.
  */
 void stop_esp_timer();
@@ -50,15 +47,11 @@ enum State getNodeState();
 void setNodeState(enum State state);
 
 /**
- * @brief Set the Time To Live (TTL) for messages.
- * 
- * @param new_ttl New TTL value.
->>>>>>> f9adeaf9abe150198684dfd5dafd5b5620603e09
+ * @brief set the message ttl for current module.
  */
 void set_message_ttl(uint8_t new_ttl);
 
 /**
-<<<<<<< HEAD
  * @brief Send Message (bytes) to another node in network
  *
  * @param dst_address  Dstination node's unicast address
@@ -73,83 +66,20 @@ void send_message(uint16_t dst_address, uint16_t length, uint8_t *data_ptr, bool
  *
  * @param length Length of message (bytes)
  * @param data_ptr pointer to data buffer that holds message
-=======
- * @brief Send a message to a specific address.
- * 
- * @param dst_address Destination address.
- * @param length Length of the message.
- * @param data_ptr Pointer to the message data.
- * @param require_response Flag indicating if a response is required.
- */
-void send_message(uint16_t dst_address, uint16_t length, uint8_t *data_ptr, bool require_response);
-
-// vvv important message functions
-
-/**
- * @brief Send an important message to a specific address.
- * 
- * @param dst_address Destination address.
- * @param length Length of the message.
- * @param data_ptr Pointer to the message data.
- */
-void send_important_message(uint16_t dst_address, uint16_t length, uint8_t *data_ptr);
-
-/**
- * @brief Get the index of an important message by its opcode.
- * 
- * @param opcode Opcode of the message.
- * @return Index of the important message.
- */
-int8_t get_important_message_index(uint32_t opcode);
-
-/**
- * @brief Retransmit an important message.
- * 
- * @param ctx_ptr Pointer to the context of the message.
- * @param opcode Opcode of the message.
- * @param index Index of the important message.
- */
-void retransmit_important_message(esp_ble_mesh_msg_ctx_t* ctx_ptr, uint32_t opcode, int8_t index);
-
-/**
- * @brief Clear an important message from storage.
- * 
- * @param index Index of the important message.
- */
-void clear_important_message(int8_t index);
-
-// ^^^ important message functions
-
-/**
- * @brief Broadcast a message to all nodes.
- * 
- * @param length Length of the message.
- * @param data_ptr Pointer to the message data.
->>>>>>> f9adeaf9abe150198684dfd5dafd5b5620603e09
  */
 void broadcast_message(uint16_t length, uint8_t *data_ptr);
 
 /**
-<<<<<<< HEAD
  * @brief Send Response (bytes) to an recived message
  *
  * @param ctx message context of incoming message, will be used for sending response to that message to src node
  * @param length Length of message (bytes)
  * @param data_ptr pointer to data buffer that holds message
  * @param message_opcode opcode of incoming message, used to determine corresponding response opcode
-=======
- * @brief Send a response to a received message.
- * 
- * @param ctx Context of the received message.
- * @param length Length of the response message.
- * @param data_ptr Pointer to the response message data.
- * @param message_opcode Opcode of the message.
->>>>>>> f9adeaf9abe150198684dfd5dafd5b5620603e09
  */
 void send_response(esp_ble_mesh_msg_ctx_t *ctx, uint16_t length, uint8_t *data_ptr, uint32_t message_opcode);
 
 /**
-<<<<<<< HEAD
  * @brief Send an Important Message (bytes) to an node
  * 
  *  This function send and tracks an important message, it will retransmit the important message with higher ttl after timeout for 2 times.
@@ -191,14 +121,10 @@ void clear_important_message(int8_t index);
  * @brief Reset the module and Erase persistent memeory if persistent memeory is enabled.
  * 
  *  This function does not restart the module!
-=======
- * @brief Reset the ESP32 device.
->>>>>>> f9adeaf9abe150198684dfd5dafd5b5620603e09
  */
 void reset_esp32();
 
 /**
-<<<<<<< HEAD
  * @brief Restart the module and Erase persistent memeory if persistent memeory is enabled.
  */
 void restart_edge();
@@ -214,12 +140,6 @@ void restart_edge();
  * @param broadcast_handler_cb Callback function triggered on reciving incoming broadcase message
  * @param connectivity_handler_cb Callback function triggered on reciving incoming connectivity message (heartbeat connection check)
  */
-=======
- * @brief Reset the edge device.
- */
-void reset_edge();
-
->>>>>>> f9adeaf9abe150198684dfd5dafd5b5620603e09
 esp_err_t esp_module_edge_init(
     void (*prov_complete_handler)(uint16_t node_index, const esp_ble_mesh_octet16_t uuid, uint16_t addr, uint8_t element_num, uint16_t net_idx),
     void (*config_complete_handler)(uint16_t addr),
