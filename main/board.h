@@ -114,7 +114,7 @@ void board_init(void);
 void board_led_operation(uint8_t r, uint8_t g, uint8_t b);
 
 /**
- * @brief Write encoded bytes to a UART port.
+ * @brief Encoded bytes and write to a UART port.
  * 
  * @param uart_num UART port number.
  * @param data Pointer to the data to be written.
