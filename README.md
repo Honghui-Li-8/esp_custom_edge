@@ -72,6 +72,7 @@ This repo contained several files and directories, but the important ones will b
   - **`board.h`**
   - **`CMakeList.txt`**
   - **`idf_componennt.yml`**
+  - **`local_edge_device.c`** Edge device logic integrated/develop in DevKit module
   - **`main.c`:** Function interacts with API level commands and Network event handlers
 - **`/Secret`:** Contains our Network Configuration for the Mesh Network and Headers
 - **`CMakeList.txt`:** Header files and definitions.
@@ -88,28 +89,23 @@ void app_main(void)
 {
     esp_log_level_set(TAG_ALL, ESP_LOG_NONE); // disable esp logs
     
-    esp_err_t err = esp_module_root_init(prov_complete_handler, config_complete_handler, recv_message_handler,       
-                              recv_response_handler, timeout_handler, broadcast_handler, connectivity_handler);
+    esp_err_t err = esp_module_edge_init(prov_complete_handler, config_complete_handler, recv_message_handler, recv_response_handler, timeout_handler, broadcast_handler, connectivity_handler);
     if (err != ESP_OK) {
         ESP_LOGE(TAG_M, "Network Module Initialization failed (err %d)", err);
         uart_sendMsg(0, "Error: Network Module Initialization failed\n");
         return;
     }
-
+    
     board_init();
     xTaskCreate(rx_task, "uart_rx_task", 1024 * 2, NULL, configMAX_PRIORITIES - 1, NULL);
 
-    char message[15] = "online\n";
-    uint8_t message_byte[15];
-    message_byte[0] = 0x03; // Root Reset
-    memcpy(message_byte + 1, message, strlen(message));
-    uart_sendData(0, message_byte, strlen(message) + 1);
-    printNetworkInfo(); // esp log for debug
+    char message[15] = "[E]online\n";
+    uart_sendData(0, (uint8_t *)message, strlen(message));
 }
 ```
-In `line 5`, `esp_module_root_init` is called to initialize the ESP Module which includes multiple functions that are used as callback functions for Network events.
+In `line 5`, `esp_module_edge_init` is called to initialize the ESP Module which includes multiple functions that are used as callback functions for Network events.
 ```c
-esp_err_t esp_module_root_init(
+esp_err_t esp_module_edge_init(
     void (*prov_complete_handler)(uint16_t node_index, const esp_ble_mesh_octet16_t uuid, 
                                   uint16_t addr, uint8_t element_num, uint16_t net_idx),
     void (*config_complete_handler)(uint16_t addr),
@@ -165,3 +161,6 @@ potencial error and warning and current fix.
 ## Testing and Troubleshooting
 
 ## References
+[ESP_BLE_MESH](https://docs.espressif.com/projects/esp-idf/en/stable/esp32/api-guides/esp-ble-mesh/ble-mesh-index.html)
+
+[ESP_BLE_MESH Github Project Examples](https://github.com/espressif/esp-idf/blob/master/examples/bluetooth/esp_ble_mesh/README.md)
