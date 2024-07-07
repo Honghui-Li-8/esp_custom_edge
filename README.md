@@ -25,10 +25,14 @@ ESP32 Edge Network Module
   - [References](#references)
 
 ## Overview
-Change into edge module
+Our ESP32 Edge, also known as the ESP32 Server, serves as an edge node within the network. It is responsible for gathering data from its respective environment and handling tasks either independently or as directed by the Root. The ESP32 Edge is equipped with WiFi and Bluetooth, but we are focusing more on its BLE Mesh features. The features included are as follows:
+- Store node information and external data, and send it to the Rasberry Pi
+- Have the ability to handle everything without Raspberry Pi
+- Be a Remote Provisioner node that connects unprovisioned node to the Root Module
+- Send a heartbeat message to root every minute
       
 ## Hardware Components
-[not sure if the Custom PCB and the Antenna will be included here or something].
+For more information please contact the author if interested on the Custom PCB or Antenna.
 
 ## Software Components
 - ESP-IDF version 5.2.0 (Espressif IoT Development Framework)
