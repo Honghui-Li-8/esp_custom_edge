@@ -198,7 +198,7 @@ void local_edge_device_network_message_handler(uint16_t node_addr, uint8_t *data
             if (running_test)
             {
                 ESP_LOGI(TAG_L, "some test is running");
-                return; // running other test
+                // return; // running other test
             }
 
             ESP_LOGI(TAG_L, "IS 'T|I' test initialization");
@@ -244,7 +244,6 @@ void local_edge_device_network_message_handler(uint16_t node_addr, uint8_t *data
         buf_itr += length - OPCODE_LEN;
         ESP_LOGI(TAG_L, "send out: '%.*s'", buf_itr - buffer, buffer);
         ble_send_to_root(buffer, buf_itr - buffer);
-        
     }
 }
 

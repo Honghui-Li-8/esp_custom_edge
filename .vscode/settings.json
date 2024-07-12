@@ -11,7 +11,7 @@
     "iot_button.h": "c",
     "esp_ble_mesh_rpr_model_api.h": "c"
   },
-  "idf.portWin": "COM21",
+  "idf.portWin": "COM22",
   "idf.flashType": "UART",
   "idf.port": "/dev/ttyUSB0"
 }
